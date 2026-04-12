@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: polify_db
+    environment:
+      POSTGRES_USER: polify
+      POSTGRES_PASSWORD: polify123
+      POSTGRES_DB: polify
+    ports:
+      - "5432:5432"
+    volumes:
+      - polify_db_data:/var/lib/postgresql/data
+
+volumes:
+  polify_db_data:
