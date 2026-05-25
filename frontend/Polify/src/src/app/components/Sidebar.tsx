@@ -51,7 +51,7 @@ export function Sidebar() {
                   : isActive
                   ? "bg-sidebar-accent text-white"
                   : "text-sidebar-foreground hover:text-white hover:bg-sidebar-accent/60"
-              }`
+              } ${item.to === "/marketplace" ? "hidden" : ""}`
             }
             style={{ fontSize: "14px", fontWeight: 500 }}
           >

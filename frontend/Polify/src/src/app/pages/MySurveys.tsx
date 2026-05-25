@@ -235,9 +235,6 @@ export function MySurveys() {
 
   // Stats for current tab
   const activeCount = currentList.filter(s => s.status === "Ativa").length;
-  const avgQuality = currentList.length > 0
-    ? currentList.reduce((acc, s) => acc + (s.avgQuality || 0), 0) / currentList.filter(s => (s.avgQuality || 0) > 0).length
-    : 0;
 
   return (
     <div className="max-w-[1200px] mx-auto px-8 py-8">
@@ -269,7 +266,7 @@ export function MySurveys() {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-muted-foreground" style={{ fontSize: "12px" }}>Total de Pesquisas</p>
           <p className="text-foreground mt-1" style={{ fontSize: "24px", fontWeight: 600 }}>{currentList.length}</p>
@@ -277,13 +274,6 @@ export function MySurveys() {
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-muted-foreground" style={{ fontSize: "12px" }}>{activeTab === "created" ? "Ativas" : "Disponíveis"}</p>
           <p className="text-emerald-600 mt-1" style={{ fontSize: "24px", fontWeight: 600 }}>{activeCount}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-muted-foreground" style={{ fontSize: "12px" }}>Qualidade Média</p>
-          <div className="flex items-center gap-2 mt-1">
-            <Shield size={16} className="text-[#6366f1]" />
-            <p className="text-[#6366f1]" style={{ fontSize: "24px", fontWeight: 600 }}>{avgQuality > 0 ? avgQuality.toFixed(1) : "—"}</p>
-          </div>
         </div>
       </div>
 
@@ -349,7 +339,6 @@ export function MySurveys() {
               <th className="text-left px-5 py-3 text-muted-foreground" style={{ fontSize: "12px", fontWeight: 500 }}>Título</th>
               <th className="text-left px-5 py-3 text-muted-foreground" style={{ fontSize: "12px", fontWeight: 500 }}>Status</th>
               <th className="text-left px-5 py-3 text-muted-foreground" style={{ fontSize: "12px", fontWeight: 500 }}>Progresso</th>
-              <th className="text-left px-5 py-3 text-muted-foreground" style={{ fontSize: "12px", fontWeight: 500 }}>Qualidade</th>
               <th className="text-left px-5 py-3 text-muted-foreground" style={{ fontSize: "12px", fontWeight: 500 }}>Data</th>
               <th className="px-5 py-3" style={{ width: "80px" }}></th>
             </tr>
@@ -377,16 +366,6 @@ export function MySurveys() {
                       </div>
                       <span className="text-muted-foreground text-xs" style={{ fontSize: "11px" }}>{progress}%</span>
                     </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    {quality > 0 ? (
-                      <div className="flex items-center gap-1">
-                        <Star size={12} className="text-[#f59e0b] fill-[#f59e0b]" />
-                        <span className="text-foreground" style={{ fontSize: "13px" }}>{quality.toFixed(1)}</span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground" style={{ fontSize: "13px" }}>-</span>
-                    )}
                   </td>
                   <td className="px-5 py-4">
                     <span className="text-muted-foreground" style={{ fontSize: "13px" }}>{survey.createdAt || '-'}</span>

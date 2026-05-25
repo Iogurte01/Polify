@@ -17,6 +17,83 @@ def get_connection():
     )
 
 
+XP_PER_COMPLETED_SURVEY = 10
+
+XP_LEVELS = [
+    {"id": "iniciante", "name": "Iniciante", "min_xp": 0, "max_xp": 99, "color": "#6b7280", "icon": "compass"},
+    {"id": "explorer", "name": "Explorador", "min_xp": 100, "max_xp": 199, "color": "#3b82f6", "icon": "handshake"},
+    {"id": "collaborator", "name": "Colaborador", "min_xp": 200, "max_xp": 299, "color": "#8b5cf6", "icon": "award"},
+    {"id": "specialist", "name": "Especialista", "min_xp": 300, "max_xp": 499, "color": "#6366f1", "icon": "shield-check"},
+    {"id": "verified_analyst", "name": "Analista Verificado", "min_xp": 500, "max_xp": None, "color": "#f59e0b", "icon": "crown"},
+]
+
+
+def calculate_xp_level(xp_total):
+    current_level = XP_LEVELS[0]
+    next_level = None
+
+    for index, level in enumerate(XP_LEVELS):
+        max_xp = level["max_xp"]
+        if max_xp is None or xp_total <= max_xp:
+            current_level = level
+            next_level = XP_LEVELS[index + 1] if index + 1 < len(XP_LEVELS) else None
+            break
+
+    if current_level["max_xp"] is None:
+        faixa_atual = f"{current_level['min_xp']}+ XP"
+        xp_para_proximo_nivel = 0
+        progress_percent = 100
+    else:
+        faixa_atual = f"{current_level['min_xp']}-{current_level['max_xp']} XP"
+        progress_percent = 0
+        xp_para_proximo_nivel = 0
+        if next_level:
+            xp_para_proximo_nivel = max(next_level["min_xp"] - xp_total, 0)
+            range_size = current_level["max_xp"] - current_level["min_xp"] + 1
+            progress_percent = round(((xp_total - current_level["min_xp"]) / range_size) * 100)
+            progress_percent = max(0, min(progress_percent, 100))
+
+    return {
+        "level_id": current_level["id"],
+        "nivel_atual": current_level["name"],
+        "faixa_atual": faixa_atual,
+        "xp_proximo_nivel": next_level["min_xp"] if next_level else None,
+        "xp_para_proximo_nivel": xp_para_proximo_nivel,
+        "progress_percent": progress_percent,
+        "level_color": current_level["color"],
+        "level_icon": current_level["icon"],
+    }
+
+
+def ensure_user_progress(cur, user_id):
+    cur.execute(
+        """
+        INSERT INTO user_progress (user_id, xp_total)
+        VALUES (%s, 0)
+        ON CONFLICT (user_id) DO NOTHING
+        """,
+        (user_id,)
+    )
+
+
+def get_user_progress_data(cur, user_id):
+    ensure_user_progress(cur, user_id)
+    cur.execute(
+        "SELECT xp_total, created_at, updated_at FROM user_progress WHERE user_id = %s",
+        (user_id,)
+    )
+    row = cur.fetchone()
+    xp_total, created_at, updated_at = row
+    level_data = calculate_xp_level(xp_total or 0)
+    return {
+        "user_id": user_id,
+        "xp_total": xp_total or 0,
+        "created_at": created_at.isoformat() if created_at else None,
+        "updated_at": updated_at.isoformat() if updated_at else None,
+        **level_data,
+    }
+
+
 
 
 
@@ -127,6 +204,38 @@ def login():
             }
         }), 200
     
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route("/api/users/<int:user_id>/progress", methods=["GET"])
+def get_user_progress(user_id):
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+        user_exists = cur.fetchone()
+        if not user_exists:
+            return jsonify({"success": False, "message": "Usuário não encontrado"}), 404
+
+        progress_data = get_user_progress_data(cur, user_id)
+        conn.commit()
+
+        return jsonify({"success": True, "progress": progress_data}), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": f"Erro ao buscar progresso: {str(e)}"}), 500
+
     finally:
         if cur:
             cur.close()
@@ -260,6 +369,16 @@ def get_forms():
             (form_id, nome_formulario, descricao_formulario, categoria, 
              min_respondentes, pontos_base, created_at, total_questions) = form
 
+            # Count real responses for this form
+            cur.execute("""
+                SELECT COUNT(DISTINCT rf.id_user) as response_count
+                FROM resp_form rf
+                JOIN perguntas_form pf ON rf.id_perg = pf.id_perg
+                WHERE pf.id_form = %s
+            """, (form_id,))
+            
+            response_count = cur.fetchone()[0] or 0
+
             forms_list.append({
                 "id": form_id,
                 "nome_formulario": nome_formulario,
@@ -269,6 +388,7 @@ def get_forms():
                 "pontos_base": pontos_base,
                 "created_at": created_at.isoformat() if created_at else None,
                 "total_questions": total_questions or 0,
+                "responses": response_count,
                 "criador_nome": "Anônimo"  # Por enquanto, pode ser implementado join com users se necessário
             })
 
@@ -552,6 +672,49 @@ def get_form_details(form_id):
             conn.close()
 
 
+@app.route("/api/forms/<int:form_id>", methods=["DELETE"])
+def delete_form(form_id):
+    """
+    Delete a survey/form
+    Method: DELETE
+    URL Param: form_id (required)
+    Returns: Success message
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Check if form exists
+        cur.execute("SELECT id FROM header_formulario WHERE id = %s", (form_id,))
+        form_exists = cur.fetchone()
+
+        if not form_exists:
+            return jsonify({"success": False, "message": "Formulário não encontrado"}), 404
+
+        # Delete the form (cascading deletes will handle questions and responses)
+        cur.execute("DELETE FROM header_formulario WHERE id = %s", (form_id,))
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Formulário deletado com sucesso"
+        }), 200
+
+    except Exception as e:
+        conn.rollback()
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": f"Erro ao deletar formulário: {str(e)}"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
 @app.route("/api/surveys/<int:survey_id>/responses", methods=["GET"])
 def get_survey_responses(survey_id):
     """
@@ -669,6 +832,7 @@ def save_responses():
     Method: POST
     Request Body: {
         "id_user": 3,
+        "survey_id": 12,
         "responses": [
             {"id_perg": 15, "resposta": "Sim"},
             {"id_perg": 16, "resposta": "Avançado"}
@@ -679,7 +843,19 @@ def save_responses():
     data = request.json
 
     id_user = data.get("id_user")
+    survey_id = data.get("survey_id")
     responses = data.get("responses", [])
+
+    try:
+        id_user = int(id_user)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "id_user inválido"}), 400
+
+    if survey_id is not None:
+        try:
+            survey_id = int(survey_id)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "survey_id inválido"}), 400
 
     # Validar campos obrigatórios
     if not id_user or not responses:
@@ -687,6 +863,17 @@ def save_responses():
 
     if not isinstance(responses, list) or len(responses) == 0:
         return jsonify({"success": False, "message": "responses deve ser uma lista não vazia"}), 400
+
+    response_question_ids = []
+    for response in responses:
+        id_perg = response.get("id_perg")
+        if not id_perg:
+            return jsonify({"success": False, "message": "Cada resposta deve ter id_perg e resposta"}), 400
+        try:
+            id_perg = int(id_perg)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "id_perg inválido"}), 400
+        response_question_ids.append(id_perg)
 
     conn = None
     cur = None
@@ -700,6 +887,65 @@ def save_responses():
         user_exists = cur.fetchone()
         if not user_exists:
             return jsonify({"success": False, "message": "Usuário não encontrado"}), 404
+
+        # Resolver survey_id quando o frontend não enviar explicitamente
+        if not survey_id:
+            cur.execute(
+                "SELECT id_form FROM perguntas_form WHERE id_perg = %s",
+                (response_question_ids[0],)
+            )
+            survey_row = cur.fetchone()
+            if not survey_row:
+                return jsonify({"success": False, "message": "Não foi possível identificar o formulário da resposta"}), 400
+            survey_id = survey_row[0]
+
+        # Validar formulário existe
+        cur.execute("SELECT id FROM header_formulario WHERE id = %s", (survey_id,))
+        survey_exists = cur.fetchone()
+        if not survey_exists:
+            return jsonify({"success": False, "message": "Formulário não encontrado"}), 404
+
+        # Garantir que o payload contém exatamente todas as perguntas do formulário
+        cur.execute("SELECT COUNT(*) FROM perguntas_form WHERE id_form = %s", (survey_id,))
+        total_questions = cur.fetchone()[0] or 0
+        if len(response_question_ids) != total_questions:
+            return jsonify({
+                "success": False,
+                "message": "Responda todas as perguntas para concluir a pesquisa"
+            }), 400
+
+        # Validar que todas as perguntas pertencem ao mesmo formulário
+        for id_perg in response_question_ids:
+            cur.execute("SELECT id_form FROM perguntas_form WHERE id_perg = %s", (id_perg,))
+            question_form = cur.fetchone()
+            if not question_form or question_form[0] != survey_id:
+                return jsonify({"success": False, "message": f"Pergunta {id_perg} não pertence ao formulário informado"}), 400
+
+        # Cria a linha de participação caso ainda não exista e bloqueia para evitar duplicidade
+        cur.execute(
+            """
+            INSERT INTO header_form_cont (id_form, id_user, completed)
+            VALUES (%s, %s, FALSE)
+            ON CONFLICT (id_form, id_user) DO NOTHING
+            """,
+            (survey_id, id_user)
+        )
+
+        cur.execute(
+            """
+            SELECT completed
+            FROM header_form_cont
+            WHERE id_form = %s AND id_user = %s
+            FOR UPDATE
+            """,
+            (survey_id, id_user)
+        )
+        participation_row = cur.fetchone()
+        already_completed = participation_row[0] if participation_row else False
+
+        if already_completed:
+            conn.rollback()
+            return jsonify({"success": False, "message": "Você já respondeu esta pesquisa"}), 409
 
         # Validar e inserir cada resposta
         saved_responses = []
@@ -736,18 +982,148 @@ def save_responses():
                 "created_at": created_at.isoformat() if created_at else None
             })
 
+        # Marca a participação como concluída e soma XP no mesmo commit
+        cur.execute(
+            """
+            UPDATE header_form_cont
+            SET completed = TRUE, completion_date = CURRENT_TIMESTAMP
+            WHERE id_form = %s AND id_user = %s
+            """,
+            (survey_id, id_user)
+        )
+
+        cur.execute(
+            """
+            INSERT INTO user_progress (user_id, xp_total)
+            VALUES (%s, %s)
+            ON CONFLICT (user_id)
+            DO UPDATE SET xp_total = user_progress.xp_total + EXCLUDED.xp_total,
+                          updated_at = CURRENT_TIMESTAMP
+            RETURNING xp_total
+            """,
+            (id_user, XP_PER_COMPLETED_SURVEY)
+        )
+        xp_total = cur.fetchone()[0]
+        xp_level = calculate_xp_level(xp_total)
+
         conn.commit()
 
         return jsonify({
             "success": True,
             "message": "Respostas salvas com sucesso",
-            "responses": saved_responses
+            "responses": saved_responses,
+            "xp_earned": XP_PER_COMPLETED_SURVEY,
+            "xp_total": xp_total,
+            "nivel_atual": xp_level["nivel_atual"],
+            "level_id": xp_level["level_id"],
+            "faixa_atual": xp_level["faixa_atual"],
+            "xp_proximo_nivel": xp_level["xp_proximo_nivel"],
+            "xp_para_proximo_nivel": xp_level["xp_para_proximo_nivel"],
+            "progress_percent": xp_level["progress_percent"],
         }), 201
 
     except Exception as e:
         conn.rollback()
         print(f"ERROR: {str(e)}")
         return jsonify({"success": False, "message": f"Erro ao salvar respostas: {str(e)}"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route("/api/purchase-intentions", methods=["POST"])
+def register_purchase_intention():
+    """
+    Register a fictional token purchase intention
+    Method: POST
+    Request Body: {
+        "user_id": 3,
+        "selected_plan": "Growth",
+        "reason": "Melhor custo-benefício",
+        "tokens_amount": 150,
+        "price": "R$ 69,90"
+    }
+    Saves in: purchase_intentions table
+    Updates user token balance
+    """
+    data = request.json
+
+    user_id = data.get("user_id")
+    selected_plan = data.get("selected_plan")
+    reason = data.get("reason")
+    tokens_amount = data.get("tokens_amount")
+    price = data.get("price")
+
+    # Validar campos obrigatórios
+    if not user_id or not selected_plan or not reason or not tokens_amount or not price:
+        return jsonify({
+            "success": False,
+            "message": "Campos obrigatórios: user_id, selected_plan, reason, tokens_amount, price"
+        }), 400
+
+    if not isinstance(tokens_amount, int) or tokens_amount <= 0:
+        return jsonify({
+            "success": False,
+            "message": "tokens_amount deve ser um número inteiro positivo"
+        }), 400
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Verificar se usuário existe
+        cur.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+        user_exists = cur.fetchone()
+        if not user_exists:
+            return jsonify({"success": False, "message": "Usuário não encontrado"}), 404
+
+        # Registrar intenção de compra
+        cur.execute(
+            """
+            INSERT INTO purchase_intentions 
+            (user_id, selected_plan, reason, tokens_amount, price)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id, created_at
+            """,
+            (user_id, selected_plan, reason, tokens_amount, price)
+        )
+
+        result = cur.fetchone()
+        purchase_id, created_at = result
+
+        # Nota: Aqui não estamos atualizando a tabela users diretamente
+        # pois não temos uma coluna de saldo de tokens no backend.
+        # O frontend gerencia o saldo localmente. 
+        # Se no futuro precisar persistir, adicionar coluna token_balance em users.
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Intenção de compra registrada com sucesso",
+            "purchase": {
+                "id": purchase_id,
+                "user_id": user_id,
+                "selected_plan": selected_plan,
+                "tokens_amount": tokens_amount,
+                "price": price,
+                "created_at": created_at.isoformat() if created_at else None
+            }
+        }), 201
+
+    except Exception as e:
+        conn.rollback()
+        print(f"ERROR: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"Erro ao registrar intenção de compra: {str(e)}"
+        }), 500
 
     finally:
         if cur:

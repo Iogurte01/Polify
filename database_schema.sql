@@ -10,6 +10,7 @@ DROP TABLE IF EXISTS resp_form CASCADE;
 DROP TABLE IF EXISTS header_form_cont CASCADE;
 DROP TABLE IF EXISTS perguntas_form CASCADE;
 DROP TABLE IF EXISTS header_formulario CASCADE;
+DROP TABLE IF EXISTS user_progress CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
 -- =====================================================
@@ -30,7 +31,20 @@ CREATE TABLE users (
 );
 
 -- =====================================================
--- 2. HEADER_FORMULARIO TABLE
+-- 2. USER_PROGRESS TABLE
+-- =====================================================
+-- Stores XP/progress for each user
+CREATE TABLE user_progress (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    xp_total INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id)
+);
+
+-- =====================================================
+-- 3. HEADER_FORMULARIO TABLE
 -- =====================================================
 -- Main survey/form definitions
 CREATE TABLE header_formulario (
@@ -48,7 +62,7 @@ CREATE TABLE header_formulario (
 );
 
 -- =====================================================
--- 3. PERGUNTAS_FORM TABLE
+-- 4. PERGUNTAS_FORM TABLE
 -- =====================================================
 -- Individual questions within each survey/form
 CREATE TABLE perguntas_form (
@@ -64,7 +78,7 @@ CREATE TABLE perguntas_form (
 );
 
 -- =====================================================
--- 4. HEADER_FORM_CONT TABLE
+-- 5. HEADER_FORM_CONT TABLE
 -- =====================================================
 -- Tracks user participation in surveys/forms
 CREATE TABLE header_form_cont (
@@ -78,7 +92,7 @@ CREATE TABLE header_form_cont (
 );
 
 -- =====================================================
--- 5. RESP_FORM TABLE
+-- 6. RESP_FORM TABLE
 -- =====================================================
 -- Stores individual responses to questions
 CREATE TABLE resp_form (
@@ -98,6 +112,10 @@ CREATE TABLE resp_form (
 -- Users table indexes
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_nome ON users(nome);
+
+-- User_progress table indexes
+CREATE INDEX idx_user_progress_user_id ON user_progress(user_id);
+CREATE INDEX idx_user_progress_xp_total ON user_progress(xp_total);
 
 -- Header_formulario table indexes
 CREATE INDEX idx_header_formulario_criador ON header_formulario(id_criador);

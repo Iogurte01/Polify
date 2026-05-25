@@ -14,7 +14,7 @@ const rewardOptions = ["5+ tokens", "8+ tokens", "10+ tokens", "15+ tokens"];
 export function Hub() {
   const navigate = useNavigate();
   const {
-    surveys, tokenBalance, answeredSurveys, userLevel,
+    surveys, tokenBalance, answeredSurveys, xpTotal, xpRange, xpToNextLevel, xpProgressPercent, userLevel,
     filters, setFilters, clearFilters, activeFilterCount, t, fetchForms,
   } = useApp();
 
@@ -89,6 +89,12 @@ export function Hub() {
               <div>
                 <p className="text-muted-foreground" style={{ fontSize: "11px" }}>Nível</p>
                 <p className="text-foreground" style={{ fontSize: "13px", fontWeight: 600 }}>{userLevel.name}</p>
+                <p className="text-muted-foreground" style={{ fontSize: "11px" }}>
+                  {xpTotal} XP · {xpRange} · {xpToNextLevel} XP restantes
+                </p>
+                <div className="mt-1 h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                  <div className="h-full rounded-full bg-[#6366f1] transition-all" style={{ width: `${Math.min(100, Math.max(0, xpProgressPercent))}%` }} />
+                </div>
               </div>
             </div>
           </div>
@@ -107,7 +113,7 @@ export function Hub() {
         </button>
         <button
           onClick={() => navigate("/marketplace")}
-          className="flex items-center gap-2 bg-card border border-border text-foreground px-5 py-2.5 rounded-xl hover:bg-secondary transition-colors"
+          className="flex items-center gap-2 bg-card border border-border text-foreground px-5 py-2.5 rounded-xl hover:bg-secondary transition-colors hidden"
           style={{ fontSize: "13px", fontWeight: 500 }}
         >
           <Store size={16} />

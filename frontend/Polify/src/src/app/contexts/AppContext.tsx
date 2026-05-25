@@ -2,10 +2,11 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import {
   currentUser, surveys as defaultSurveys, tokenHistory as defaultTokenHistory,
   mySurveys as defaultMySurveys, type Survey, type TokenTransaction, type UserProfile,
-  type Demographics, type TrustScoreData, getDefaultTrustScore, getUserLevel,
-  computeStarsFromStructuredRating,
+  type Demographics, type TrustScoreData, type GamificationLevel, getDefaultTrustScore,
+  computeStarsFromStructuredRating, gamificationLevels, URL_backend,
 } from "../data/mockData";
 import translations, { type Lang } from "../i18n/translations";
+
 
 // ── Types ──
 interface AuthState {
@@ -41,6 +42,11 @@ interface AppState {
   demographics: Demographics;
   trustScore: TrustScoreData;
   totalResponses: number;
+  xpTotal: number;
+  xpLevelId: string;
+  xpRange: string;
+  xpToNextLevel: number;
+  xpProgressPercent: number;
   onboardingComplete: boolean;
   purchasedInsights: string[];
   theme: "light" | "dark";
@@ -93,7 +99,7 @@ interface AppContextType extends AppState {
   addMarketplaceSurvey: (title: string, id: string) => void;
   requestDataDeletion: () => void;
   downloadUserData: () => void;
-  userLevel: ReturnType<typeof getUserLevel>;
+  userLevel: GamificationLevel;
 }
 
 const defaultFilters = { category: "", state: "", city: "", time: "", reward: "" };
@@ -171,6 +177,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return v ? Number(v) : 156;
   });
 
+  const [xpTotal, setXpTotal] = useState(() => {
+    const v = localStorage.getItem("polify_xpTotal");
+    return v ? Number(v) : 0;
+  });
+
+  const [xpLevelId, setXpLevelId] = useState(() => {
+    return localStorage.getItem("polify_xpLevelId") || "iniciante";
+  });
+
+  const [xpRange, setXpRange] = useState(() => {
+    return localStorage.getItem("polify_xpRange") || "0-99 XP";
+  });
+
+  const [xpToNextLevel, setXpToNextLevel] = useState(() => {
+    const v = localStorage.getItem("polify_xpToNextLevel");
+    return v ? Number(v) : 100;
+  });
+
+  const [xpProgressPercent, setXpProgressPercent] = useState(() => {
+    const v = localStorage.getItem("polify_xpProgressPercent");
+    return v ? Number(v) : 0;
+  });
+
   const [onboardingComplete, setOnboardingComplete] = useState(() => {
     return localStorage.getItem("polify_onboarding") === "true";
   });
@@ -211,6 +240,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => { localStorage.setItem("polify_demographics", JSON.stringify(demographics)); }, [demographics]);
   useEffect(() => { localStorage.setItem("polify_trustScore", JSON.stringify(trustScore)); }, [trustScore]);
   useEffect(() => { localStorage.setItem("polify_totalResponses", String(totalResponses)); }, [totalResponses]);
+  useEffect(() => { localStorage.setItem("polify_xpTotal", String(xpTotal)); }, [xpTotal]);
+  useEffect(() => { localStorage.setItem("polify_xpLevelId", xpLevelId); }, [xpLevelId]);
+  useEffect(() => { localStorage.setItem("polify_xpRange", xpRange); }, [xpRange]);
+  useEffect(() => { localStorage.setItem("polify_xpToNextLevel", String(xpToNextLevel)); }, [xpToNextLevel]);
+  useEffect(() => { localStorage.setItem("polify_xpProgressPercent", String(xpProgressPercent)); }, [xpProgressPercent]);
   useEffect(() => { localStorage.setItem("polify_onboarding", String(onboardingComplete)); }, [onboardingComplete]);
   useEffect(() => { localStorage.setItem("polify_purchasedInsights", JSON.stringify(purchasedInsights)); }, [purchasedInsights]);
   useEffect(() => { localStorage.setItem("polify_filters", JSON.stringify(filters)); }, [filters]);
@@ -238,10 +272,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return str;
   }, [lang]);
 
+  // Calculate if a survey is trending based on progress and response count
+  // Trending if: responses >= 40% of target AND responses >= 3
+  const calculateTrending = (responses: number, targetResponses: number): boolean => {
+    const progressPercent = (responses / targetResponses) * 100;
+    return progressPercent >= 40 && responses >= 3;
+  };
+
+  const fetchUserProgress = useCallback(async (userId: number) => {
+    try {
+      const response = await fetch(`${URL_backend}/api/users/${userId}/progress`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.progress) {
+        setXpTotal(data.progress.xp_total || 0);
+        setXpLevelId(data.progress.level_id || "iniciante");
+        setXpRange(data.progress.faixa_atual || "0-99 XP");
+        setXpToNextLevel(data.progress.xp_para_proximo_nivel ?? 0);
+        setXpProgressPercent(data.progress.progress_percent ?? 0);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Erro ao buscar progresso do usuário:", error);
+      return false;
+    }
+  }, []);
+
   // Fetch forms from backend
   const fetchForms = useCallback(async () => {
     try {
-      const response = await fetch("http://127.0.0.1:5000/api/forms", {
+      const response = await fetch(`${URL_backend}/api/forms`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json"
@@ -259,11 +327,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           description: form.descricao_formulario || "",
           tokenReward: form.pontos_base || 0,
           estimatedTime: `${Math.max(5, Math.floor(form.total_questions * 2))} min`, // Estimate based on questions
-          responses: Math.floor(Math.random() * 50) + 10, // Mock data for now
+          responses: form.responses || 0, // Real response count from backend
           targetResponses: form.min_respondentes || 50,
           status: "Ativa",
           eligible: true,
-          trending: Math.random() > 0.7, // Random trending
+          trending: calculateTrending(form.responses || 0, form.min_respondentes || 50),
           boosted: Math.random() > 0.8, // Random boosted
           segmentation: "Geral",
           creator: form.criador_nome,
@@ -284,7 +352,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Fetch form details from backend
   const fetchFormDetails = useCallback(async (formId: string) => {
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/forms/${formId}`, {
+      const response = await fetch(`${URL_backend}/api/forms/${formId}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json"
@@ -316,7 +384,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       params.append('user_id', String(userId));
       console.log('Fetching surveys for user_id:', userId); // Debug log
       
-      const response = await fetch(`http://127.0.0.1:5000/api/my-surveys?${params.toString()}`, {
+      const response = await fetch(`${URL_backend}/api/my-surveys?${params.toString()}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json"
@@ -326,23 +394,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
 
       if (data.success) {
-        // Transform backend data to match frontend MySurvey type
+        // Transform backend data to match frontend MySurvey type (accept both portuguese and english keys)
         const transformedSurveys: MySurvey[] = data.surveys.map((survey: any) => ({
-          id: survey.id.toString(),
-          title: survey.nome_formulario,
-          category: survey.categoria,
-          description: survey.descricao_formulario || "",
-          tokenReward: survey.pontos_base || 0,
+          id: String(survey.id),
+          title: survey.title || survey.nome_formulario || "",
+          category: survey.category || survey.categoria || "",
+          description: survey.description || survey.descricao_formulario || "",
+          tokenReward: survey.tokenReward ?? survey.pontos_base ?? 0,
           estimatedTime: `${Math.max(5, Math.floor((survey.total_questions || 0) * 2))} min`,
-          responses: survey.total_responses || 0,
-          targetResponses: survey.min_respondentes || 50,
-          status: survey.status,
+          responses: survey.responses ?? survey.total_responses ?? 0,
+          targetResponses: survey.targetResponses ?? survey.min_respondentes ?? 50,
+          status: survey.status || (survey.is_active ? "Ativa" : "Encerrada"),
           eligible: true,
-          trending: Math.random() > 0.7,
+          trending: calculateTrending(survey.responses ?? survey.total_responses ?? 0, survey.targetResponses ?? survey.min_respondentes ?? 50),
           boosted: Math.random() > 0.8,
-          segmentation: "Geral",
-          createdAt: new Date(survey.created_at).toLocaleDateString('pt-BR'),
-          source: "Polify",
+          segmentation: survey.segmentation || "Geral",
+          createdAt: new Date(survey.createdAt || survey.created_at).toLocaleDateString('pt-BR'),
+          source: survey.source || "created",
           avgQuality: null,
           validResponses: null
         }));
@@ -415,9 +483,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [auth.user?.id, fetchForms]);
 
-  // User level
-  const userLevel = getUserLevel(totalResponses);
-
   // Auth
 const login = async (email: string, password: string): Promise<boolean> => {
   try {
@@ -464,6 +529,11 @@ const login = async (email: string, password: string): Promise<boolean> => {
     setRespondentRatings({});
     setTrustScore(getDefaultTrustScore());
     setTotalResponses(0);
+    setXpTotal(0);
+    setXpLevelId("iniciante");
+    setXpRange("0-99 XP");
+    setXpToNextLevel(100);
+    setXpProgressPercent(0);
     setPurchasedInsights([]);
     setOnboardingComplete(true); // Google login = skip onboarding
   }, []);
@@ -504,6 +574,11 @@ const register = async ( name: string, email: string, password: string): Promise
     setDemographics(currentUser.demographics);
     setTrustScore(getDefaultTrustScore());
     setTotalResponses(0);
+    setXpTotal(0);
+    setXpLevelId("iniciante");
+    setXpRange("0-99 XP");
+    setXpToNextLevel(100);
+    setXpProgressPercent(0);
     setOnboardingComplete(false);
     setPurchasedInsights([]);
     setFiltersState(defaultFilters);
@@ -511,7 +586,9 @@ const register = async ( name: string, email: string, password: string): Promise
     const keys = [
       "polify_auth", "polify_tokens", "polify_avgRating", "polify_answered",
       "polify_mySurveys", "polify_surveys", "polify_tokenHistory", "polify_respondentRatings",
-      "polify_demographics", "polify_trustScore", "polify_totalResponses", "polify_onboarding",
+      "polify_demographics", "polify_trustScore", "polify_totalResponses", "polify_xpTotal",
+      "polify_xpLevelId", "polify_xpRange", "polify_xpToNextLevel", "polify_xpProgressPercent",
+      "polify_onboarding",
       "polify_purchasedInsights", "polify_filters", "polify_lgpdDeletion",
     ];
     keys.forEach(k => localStorage.removeItem(k));
@@ -558,6 +635,7 @@ const register = async ( name: string, email: string, password: string): Promise
         },
         body: JSON.stringify({
           id_user: userId,
+          survey_id: surveyId,
           responses: responses
         })
       });
@@ -565,6 +643,12 @@ const register = async ( name: string, email: string, password: string): Promise
       const data = await response.json();
 
       if (data.success) {
+        if (data.xp_total !== undefined) setXpTotal(data.xp_total);
+        if (data.level_id) setXpLevelId(data.level_id);
+        if (data.faixa_atual) setXpRange(data.faixa_atual);
+        if (data.xp_para_proximo_nivel !== undefined) setXpToNextLevel(data.xp_para_proximo_nivel);
+        if (data.progress_percent !== undefined) setXpProgressPercent(data.progress_percent);
+
         // Atualizar estado local apenas se backend salvar com sucesso
         setAnsweredSurveys(prev => [...prev, surveyId]);
         setSurveys(prev => prev.map(s =>
@@ -581,6 +665,23 @@ const register = async ( name: string, email: string, password: string): Promise
       return { success: false, message: "Erro ao conectar com o servidor" };
     }
   }, [auth.user?.id, currentUser.id]);
+
+  const userLevel = gamificationLevels.find(level => level.id === xpLevelId) || gamificationLevels[0];
+
+  useEffect(() => {
+    const userId = auth.user?.id;
+
+    if (!userId) {
+      setXpTotal(0);
+      setXpLevelId("iniciante");
+      setXpRange("0-99 XP");
+      setXpToNextLevel(100);
+      setXpProgressPercent(0);
+      return;
+    }
+
+    fetchUserProgress(userId);
+  }, [auth.user?.id, fetchUserProgress]);
 
   // Publish survey
   const publishSurvey = useCallback((survey: Omit<MySurvey, "id" | "responses" | "createdAt" | "source" | "avgQuality" | "validResponses">, cost: number, feedSurvey: Omit<Survey, "id">): boolean => {
@@ -600,7 +701,7 @@ const register = async ( name: string, email: string, password: string): Promise
 
   const deleteSurvey = useCallback(async (id: string) => {
   try {
-    const response = await fetch(`http://127.0.0.1:5000/api/forms/${id}`, {
+    const response = await fetch(`${URL_backend}/api/forms/${id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json"
@@ -700,6 +801,7 @@ const register = async ( name: string, email: string, password: string): Promise
     const userData = {
       profile: auth.user, avgRating, tokenBalance, answeredSurveys,
       demographics, trustScore, totalResponses,
+      xpTotal, xpLevelId, xpRange, xpToNextLevel, xpProgressPercent,
       tokenHistory: tokenHistoryList, mySurveys: mySurveysList,
       respondentRatings, exportDate: new Date().toISOString(),
     };
@@ -715,7 +817,8 @@ const register = async ( name: string, email: string, password: string): Promise
   const value: AppContextType = {
     auth, tokenBalance, avgRating, surveys, mySurveys: mySurveysList,
     tokenHistory: tokenHistoryList, answeredSurveys, respondentRatings,
-    demographics, trustScore, totalResponses, onboardingComplete, purchasedInsights,
+    demographics, trustScore, totalResponses, xpTotal, xpLevelId, xpRange, xpToNextLevel, xpProgressPercent,
+    onboardingComplete, purchasedInsights,
     theme, lang, filters, lgpdDeletionStatus,
     t, login, loginGoogle, register, logout, fetchForms, fetchFormDetails, fetchMySurveys, createForm,
     setTheme, setLang, setFilters, clearFilters, activeFilterCount,

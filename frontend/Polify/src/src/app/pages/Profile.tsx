@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
-  User, Star, CheckCircle, Award, BarChart3, Edit3, Save, X,
+  User, CheckCircle, Award, BarChart3, Edit3, Save, X,
   MessageSquare, LogOut, Trash2, ShieldCheck, Target, GraduationCap, MapPin, Trophy,
   Download, AlertTriangle, Shield, Compass, Crown, Handshake,
 } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
-import { currentUser, brazilianStates, gamificationLevels, getUserLevel, getTrustLabel } from "../data/mockData";
+import { currentUser, brazilianStates, gamificationLevels } from "../data/mockData";
 import { CityAutocomplete } from "../components/CityAutocomplete";
 import { toast } from "sonner";
 
@@ -29,15 +29,17 @@ const levelIcons: Record<string, React.ReactNode> = {
 
 export function Profile() {
   const navigate = useNavigate();
-  const { auth, avgRating, tokenBalance, mySurveys, demographics, updateDemographics, trustScore, totalResponses, userLevel, logout, deleteAccount, downloadUserData, requestDataDeletion, lgpdDeletionStatus, t } = useApp();
+  const { auth, surveys, mySurveys, answeredSurveys, demographics, updateDemographics, xpTotal, xpRange, xpToNextLevel, xpProgressPercent, userLevel, logout, deleteAccount, downloadUserData, requestDataDeletion, lgpdDeletionStatus, t } = useApp();
   const [editing, setEditing] = useState(false);
   const [editDraft, setEditDraft] = useState({ ...demographics });
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deletionConfirmModal, setDeletionConfirmModal] = useState(false);
 
-  const totalRatings = currentUser.ratings.reduce((acc, r) => acc + r.count, 0);
-  const trustLabel = getTrustLabel(trustScore.score);
+  const activeSurveysCount = surveys.filter((survey) => survey.status === "Ativa").length;
+  const completionRate = activeSurveysCount > 0
+    ? Math.round((answeredSurveys.length / activeSurveysCount) * 100)
+    : 0;
 
   const handleStartEditing = () => { setEditDraft({ ...demographics }); setEditing(true); };
   const handleSave = () => { updateDemographics(editDraft); setEditing(false); toast.success(t("profile.savedSuccess")); };
@@ -77,6 +79,18 @@ export function Profile() {
                   </span>
                 </div>
                 <p className="text-muted-foreground" style={{ fontSize: "13px" }}>{auth.user?.email || currentUser.email}</p>
+                <p className="text-muted-foreground mt-2" style={{ fontSize: "12px" }}>
+                  {xpTotal} XP acumulado · {xpRange}
+                </p>
+                <div className="mt-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-muted-foreground" style={{ fontSize: "11px" }}>Progresso para o próximo nível</span>
+                    <span className="text-muted-foreground" style={{ fontSize: "11px" }}>{xpToNextLevel} XP restantes</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                    <div className="h-full rounded-full bg-[#6366f1] transition-all" style={{ width: `${Math.min(100, Math.max(0, xpProgressPercent))}%` }} />
+                  </div>
+                </div>
                 <div className="flex items-center gap-2 mt-3 flex-wrap">
                   {currentUser.badges.filter((b) => b.earned).map((badge) => (
                     <span key={badge.name} className="bg-[#6366f1]/10 text-[#6366f1] px-2.5 py-1 rounded-md flex items-center gap-1.5 group relative" style={{ fontSize: "11px", fontWeight: 500 }}>
@@ -90,50 +104,9 @@ export function Profile() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-3">
-            <StatCard icon={<Star size={16} className="text-[#f59e0b]" />} label="Estrelas" value={avgRating.toFixed(1)} color="text-[#f59e0b]" />
-            <StatCard icon={<CheckCircle size={16} className="text-emerald-600" />} label={t("profile.completionRate")} value={`${currentUser.completionRate}%`} color="text-emerald-600" />
-            <StatCard icon={<MessageSquare size={16} className="text-[#8b5cf6]" />} label="Respostas" value={`${totalResponses}`} color="text-[#8b5cf6]" />
-            <StatCard icon={<Shield size={16} className="text-[#6366f1]" />} label="Confiabilidade" value={`${trustScore.score}`} color={`text-[${trustLabel.color}]`} />
-          </div>
-
-          {/* Trust Score & Anti-Spam */}
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h3 className="text-foreground mb-4 flex items-center gap-2" style={{ fontSize: "15px" }}>
-              <Shield size={16} className="text-[#6366f1]" /> Score de Confiabilidade
-            </h3>
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <p style={{ fontSize: "32px", fontWeight: 700, color: trustLabel.color }}>{trustScore.score}</p>
-                <p style={{ fontSize: "12px", fontWeight: 500, color: trustLabel.color }}>{trustLabel.label}</p>
-              </div>
-              <div className="flex-1">
-                <div className="w-full bg-secondary rounded-full h-3 mb-3">
-                  <div className="h-3 rounded-full transition-all" style={{ width: `${trustScore.score}%`, backgroundColor: trustLabel.color }} />
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="text-center">
-                    <p className="text-foreground" style={{ fontSize: "14px", fontWeight: 600 }}>x{trustScore.tokenMultiplier.toFixed(1)}</p>
-                    <p className="text-muted-foreground" style={{ fontSize: "11px" }}>Multiplicador</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-foreground" style={{ fontSize: "14px", fontWeight: 600 }}>{trustScore.penalties}</p>
-                    <p className="text-muted-foreground" style={{ fontSize: "11px" }}>Penalizações</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-foreground" style={{ fontSize: "14px", fontWeight: 600 }}>{trustScore.tempBans}</p>
-                    <p className="text-muted-foreground" style={{ fontSize: "11px" }}>Bans temp.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {trustScore.score < 60 && (
-              <div className="mt-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                <p className="text-amber-700 dark:text-amber-400" style={{ fontSize: "12px" }}>
-                  Seu score está baixo. Responda pesquisas com atenção para recuperá-lo. 3 penalizações resultam em ban temporário.
-                </p>
-              </div>
-            )}
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard icon={<CheckCircle size={16} className="text-emerald-600" />} label={t("profile.completionRate")} value={`${completionRate}%`} color="text-emerald-600" />
+            <StatCard icon={<MessageSquare size={16} className="text-[#8b5cf6]" />} label="Respostas" value={`${answeredSurveys.length}`} color="text-[#8b5cf6]" />
           </div>
 
           {/* Gamification Levels */}
@@ -144,7 +117,7 @@ export function Profile() {
             <div className="space-y-2">
               {gamificationLevels.map((level) => {
                 const isCurrentLevel = level.id === userLevel.id;
-                const isUnlocked = totalResponses >= level.minResponses;
+                const isUnlocked = xpTotal >= level.minXp;
                 return (
                   <div key={level.id} className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${isCurrentLevel ? "bg-[#6366f1]/5 border border-[#6366f1]/20" : isUnlocked ? "bg-secondary/50" : "opacity-40"}`}>
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${level.color}15`, color: level.color }}>
@@ -155,42 +128,12 @@ export function Profile() {
                         <p className="text-foreground" style={{ fontSize: "13px", fontWeight: 500 }}>{level.name}</p>
                         {isCurrentLevel && <span className="bg-[#6366f1] text-white px-1.5 py-0.5 rounded" style={{ fontSize: "9px", fontWeight: 600 }}>ATUAL</span>}
                       </div>
-                      <p className="text-muted-foreground" style={{ fontSize: "11px" }}>{level.minResponses}+ respostas · x{level.tokenMultiplier.toFixed(1)} tokens</p>
+                      <p className="text-muted-foreground" style={{ fontSize: "11px" }}>{level.minXp}+ XP · x{level.tokenMultiplier.toFixed(1)} tokens</p>
                     </div>
                     {isUnlocked && <CheckCircle size={16} className="text-emerald-600" />}
                   </div>
                 );
               })}
-            </div>
-          </div>
-
-          {/* Ratings */}
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h3 className="text-foreground mb-4 flex items-center gap-2" style={{ fontSize: "15px" }}>
-              <Award size={16} />{t("profile.ratings")}
-            </h3>
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <p className="text-foreground" style={{ fontSize: "32px", fontWeight: 700 }}>{avgRating.toFixed(1)}</p>
-                <div className="flex items-center gap-0.5 justify-center my-1">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} size={14} className={s <= Math.round(avgRating) ? "text-[#f59e0b] fill-[#f59e0b]" : "text-gray-200 dark:text-gray-600"} />
-                  ))}
-                </div>
-                <p className="text-muted-foreground" style={{ fontSize: "11px" }}>{totalRatings} {t("profile.reviews")}</p>
-              </div>
-              <div className="flex-1 space-y-1.5">
-                {currentUser.ratings.map((r) => (
-                  <div key={r.stars} className="flex items-center gap-2">
-                    <span className="text-muted-foreground w-3 text-right" style={{ fontSize: "11px" }}>{r.stars}</span>
-                    <Star size={10} className="text-[#f59e0b] fill-[#f59e0b]" />
-                    <div className="flex-1 bg-secondary rounded-full h-2">
-                      <div className="bg-[#f59e0b] h-2 rounded-full" style={{ width: `${(r.count / totalRatings) * 100}%` }} />
-                    </div>
-                    <span className="text-muted-foreground w-8" style={{ fontSize: "11px" }}>{r.count}</span>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
 

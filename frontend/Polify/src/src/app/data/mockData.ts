@@ -1,3 +1,5 @@
+export const URL_backend = 'https://concert-acting-discounted-development.trycloudflare.com'
+
 export const categories = [
   "Pesquisa de Mercado",
   "Acadêmica",
@@ -91,24 +93,24 @@ export const genders = ["Todos", "Feminino", "Masculino", "Não-binário"] as co
 export interface GamificationLevel {
   id: string;
   name: string;
-  minResponses: number;
+  minXp: number;
   tokenMultiplier: number;
   color: string;
   icon: string;
 }
 
 export const gamificationLevels: GamificationLevel[] = [
-  { id: "explorer", name: "Explorador", minResponses: 0, tokenMultiplier: 1.0, color: "#6b7280", icon: "compass" },
-  { id: "collaborator", name: "Colaborador", minResponses: 50, tokenMultiplier: 1.1, color: "#3b82f6", icon: "handshake" },
-  { id: "specialist", name: "Especialista", minResponses: 100, tokenMultiplier: 1.2, color: "#8b5cf6", icon: "award" },
-  { id: "verified_analyst", name: "Analista Verificado", minResponses: 200, tokenMultiplier: 1.3, color: "#6366f1", icon: "shield-check" },
-  { id: "premium", name: "Respondente Premium", minResponses: 500, tokenMultiplier: 1.5, color: "#f59e0b", icon: "crown" },
+  { id: "iniciante", name: "Iniciante", minXp: 0, tokenMultiplier: 1.0, color: "#6b7280", icon: "compass" },
+  { id: "explorador", name: "Explorador", minXp: 100, tokenMultiplier: 1.1, color: "#3b82f6", icon: "handshake" },
+  { id: "colaborador", name: "Colaborador", minXp: 200, tokenMultiplier: 1.2, color: "#8b5cf6", icon: "award" },
+  { id: "especialista", name: "Especialista", minXp: 300, tokenMultiplier: 1.3, color: "#6366f1", icon: "shield-check" },
+  { id: "analista_verificado", name: "Analista Verificado", minXp: 500, tokenMultiplier: 1.5, color: "#f59e0b", icon: "crown" },
 ];
 
-export function getUserLevel(totalResponses: number): GamificationLevel {
+export function getUserLevel(xpTotal: number): GamificationLevel {
   let level = gamificationLevels[0];
   for (const l of gamificationLevels) {
-    if (totalResponses >= l.minResponses) level = l;
+    if (xpTotal >= l.minXp) level = l;
   }
   return level;
 }
