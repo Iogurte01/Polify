@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -9,13 +10,12 @@ CORS(app)
 
 def get_connection():
     return psycopg2.connect(
-        host="localhost",
-        port=5432,
-        database="polify",
-        user="polify",
-        password="polify123"
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT", 5432),
+        database=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD")
     )
-
 
 XP_PER_COMPLETED_SURVEY = 10
 
