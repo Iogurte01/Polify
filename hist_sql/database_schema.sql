@@ -1,53 +1,39 @@
 -- =====================================================
--- POLIFY FINAL DATABASE SCHEMA
+-- POLIFY DATABASE SCHEMA
 -- =====================================================
--- Consolidated final PostgreSQL schema after applying all SQL files
--- and removing migrations / incremental scripts.
--- =====================================================
-
--- =====================================================
--- CLEAN RECREATION
+-- SaaS Survey Platform Database Structure
+-- Created: April 2026
 -- =====================================================
 
-DROP VIEW IF EXISTS survey_statistics;
-DROP VIEW IF EXISTS survey_details;
-
+-- Drop existing tables if they exist (for clean recreation)
 DROP TABLE IF EXISTS resp_form CASCADE;
 DROP TABLE IF EXISTS header_form_cont CASCADE;
 DROP TABLE IF EXISTS perguntas_form CASCADE;
 DROP TABLE IF EXISTS header_formulario CASCADE;
-DROP TABLE IF EXISTS purchase_intentions CASCADE;
 DROP TABLE IF EXISTS user_progress CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
-DROP FUNCTION IF EXISTS update_users_updated_at();
-DROP FUNCTION IF EXISTS update_updated_at_column();
-
 -- =====================================================
--- 1. USERS
+-- 1. USER TABLE
 -- =====================================================
-
+-- Stores user information for authentication and profile management
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
-    sobrenome VARCHAR(100),
+    sobrenome VARCHAR(100) NOT NULL,
     idade INTEGER CHECK (idade >= 0 AND idade <= 150),
     cidade VARCHAR(100),
     pais VARCHAR(100),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT users_id_check CHECK (id > 0),
-    CONSTRAINT users_nome_not_null CHECK (nome IS NOT NULL),
-    CONSTRAINT users_email_not_null CHECK (email IS NOT NULL),
-    CONSTRAINT users_password_hash_not_null CHECK (password_hash IS NOT NULL)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =====================================================
--- 2. USER_PROGRESS
+-- 2. USER_PROGRESS TABLE
 -- =====================================================
-
+-- Stores XP/progress for each user
 CREATE TABLE user_progress (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -58,24 +44,9 @@ CREATE TABLE user_progress (
 );
 
 -- =====================================================
--- 3. PURCHASE_INTENTIONS
+-- 3. HEADER_FORMULARIO TABLE
 -- =====================================================
-
-CREATE TABLE purchase_intentions (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    selected_plan VARCHAR(100) NOT NULL,
-    reason TEXT NOT NULL,
-    tokens_amount INTEGER NOT NULL,
-    price VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- =====================================================
--- 4. HEADER_FORMULARIO
--- =====================================================
-
+-- Main survey/form definitions
 CREATE TABLE header_formulario (
     id SERIAL PRIMARY KEY,
     nome_formulario VARCHAR(255) NOT NULL,
@@ -91,25 +62,25 @@ CREATE TABLE header_formulario (
 );
 
 -- =====================================================
--- 5. PERGUNTAS_FORM
+-- 4. PERGUNTAS_FORM TABLE
 -- =====================================================
-
+-- Individual questions within each survey/form
 CREATE TABLE perguntas_form (
     id_perg SERIAL PRIMARY KEY,
     id_form INTEGER NOT NULL REFERENCES header_formulario(id) ON DELETE CASCADE,
     num_pergunta INTEGER NOT NULL,
     pergunta TEXT NOT NULL,
-    alternativa TEXT,
+    alternativa TEXT, -- For multiple choice options (JSON format or comma-separated)
     tipagem VARCHAR(50) NOT NULL CHECK (tipagem IN ('text', 'multiple_choice', 'checkbox', 'rating', 'date', 'number')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(id_form, num_pergunta)
+    UNIQUE(id_form, num_pergunta) -- Ensures question numbers are unique within each form
 );
 
 -- =====================================================
--- 6. HEADER_FORM_CONT
+-- 5. HEADER_FORM_CONT TABLE
 -- =====================================================
-
+-- Tracks user participation in surveys/forms
 CREATE TABLE header_form_cont (
     id SERIAL PRIMARY KEY,
     id_form INTEGER NOT NULL REFERENCES header_formulario(id) ON DELETE CASCADE,
@@ -117,13 +88,13 @@ CREATE TABLE header_form_cont (
     date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     completed BOOLEAN DEFAULT FALSE,
     completion_date TIMESTAMP WITH TIME ZONE,
-    UNIQUE(id_form, id_user)
+    UNIQUE(id_form, id_user) -- Prevents duplicate participation
 );
 
 -- =====================================================
--- 7. RESP_FORM
+-- 6. RESP_FORM TABLE
 -- =====================================================
-
+-- Stores individual responses to questions
 CREATE TABLE resp_form (
     id SERIAL PRIMARY KEY,
     id_perg INTEGER NOT NULL REFERENCES perguntas_form(id_perg) ON DELETE CASCADE,
@@ -131,67 +102,54 @@ CREATE TABLE resp_form (
     resposta TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(id_perg, id_user)
+    UNIQUE(id_perg, id_user) -- One response per question per user
 );
 
 -- =====================================================
--- INDEXES
+-- INDEXES FOR PERFORMANCE
 -- =====================================================
 
+-- Users table indexes
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_nome ON users(nome);
 
+-- User_progress table indexes
 CREATE INDEX idx_user_progress_user_id ON user_progress(user_id);
 CREATE INDEX idx_user_progress_xp_total ON user_progress(xp_total);
 
-CREATE INDEX idx_purchase_intentions_user ON purchase_intentions(user_id);
-CREATE INDEX idx_purchase_intentions_created ON purchase_intentions(created_at);
-
+-- Header_formulario table indexes
 CREATE INDEX idx_header_formulario_criador ON header_formulario(id_criador);
 CREATE INDEX idx_header_formulario_categoria ON header_formulario(categoria);
 CREATE INDEX idx_header_formulario_active ON header_formulario(is_active);
 
+-- Perguntas_form table indexes
 CREATE INDEX idx_perguntas_form_form ON perguntas_form(id_form);
 CREATE INDEX idx_perguntas_form_tipagem ON perguntas_form(tipagem);
 
+-- Header_form_cont table indexes
 CREATE INDEX idx_header_form_cont_form ON header_form_cont(id_form);
 CREATE INDEX idx_header_form_cont_user ON header_form_cont(id_user);
 CREATE INDEX idx_header_form_cont_completed ON header_form_cont(completed);
 
+-- Resp_form table indexes
 CREATE INDEX idx_resp_form_pergunta ON resp_form(id_perg);
 CREATE INDEX idx_resp_form_user ON resp_form(id_user);
 
 -- =====================================================
--- FUNCTIONS
+-- TRIGGERS FOR AUTOMATIC TIMESTAMP UPDATES
 -- =====================================================
 
+-- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ language 'plpgsql';
 
-CREATE OR REPLACE FUNCTION update_users_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE 'plpgsql';
-
--- =====================================================
--- TRIGGERS
--- =====================================================
-
-CREATE TRIGGER users_updated_at_trigger BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_users_updated_at();
-
-CREATE TRIGGER update_user_progress_updated_at BEFORE UPDATE ON user_progress
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_purchase_intentions_updated_at BEFORE UPDATE ON purchase_intentions
+-- Apply trigger to tables with updated_at columns
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_header_formulario_updated_at BEFORE UPDATE ON header_formulario
@@ -204,9 +162,10 @@ CREATE TRIGGER update_resp_form_updated_at BEFORE UPDATE ON resp_form
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
--- VIEWS
+-- VIEWS FOR COMMON QUERIES
 -- =====================================================
 
+-- View for survey details with creator information
 CREATE VIEW survey_details AS
 SELECT 
     hf.id,
@@ -218,11 +177,12 @@ SELECT
     hf.pontos_base,
     hf.created_at,
     hf.is_active,
-    u.nome || ' ' || COALESCE(u.sobrenome, '') AS criador_nome,
+    u.nome || ' ' || u.sobrenome AS criador_nome,
     u.email AS criador_email
 FROM header_formulario hf
 JOIN users u ON hf.id_criador = u.id;
 
+-- View for response statistics
 CREATE VIEW survey_statistics AS
 SELECT 
     hf.id AS survey_id,
