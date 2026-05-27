@@ -23,7 +23,7 @@ export function ViewResponses() {
         setError(null);
         
         // Buscar detalhes da pesquisa
-        const formResponse = await fetch(`http://127.0.0.1:5000/api/forms/${id}`, {
+        const formResponse = await fetch(`${URL_backend}/api/forms/${id}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json"
@@ -47,7 +47,7 @@ export function ViewResponses() {
         setSurveyDetails(formData.form);
         
         // Buscar respostas da pesquisa
-        const responsesResponse = await fetch(`http://127.0.0.1:5000/api/surveys/${id}/responses?user_id=${userId}`, {
+        const responsesResponse = await fetch(`${URL_backend}/api/surveys/${id}/responses?user_id=${userId}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json"

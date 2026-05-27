@@ -3,18 +3,26 @@ from flask_cors import CORS
 import psycopg2
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 CORS(app)
+load_dotenv()
+
+application = app
 
 
 def get_connection():
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        return psycopg2.connect(database_url)
+
     return psycopg2.connect(
-        host=os.getenv("host"),
-        port=os.getenv("DB_PORT"),
+        host=os.getenv("DB_HOST") or os.getenv("host") or "localhost",
+        port=os.getenv("DB_PORT", "5432"),
         database=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
-        password=os.getenv("DB_password")
+        password=os.getenv("DB_PASSWORD") or os.getenv("DB_password")
     )
 
 XP_PER_COMPLETED_SURVEY = 10
@@ -1133,4 +1141,6 @@ def register_purchase_intention():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.getenv("PORT", "5000"))
+    debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host="0.0.0.0", port=port, debug=debug)

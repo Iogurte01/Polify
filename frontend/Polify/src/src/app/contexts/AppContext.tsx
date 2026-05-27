@@ -436,7 +436,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pontos_base?: number;
   }) => {
     try {
-      const response = await fetch("http://127.0.0.1:5000/api/forms", {
+      const response = await fetch(`${URL_backend}/api/forms`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -486,7 +486,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Auth
 const login = async (email: string, password: string): Promise<boolean> => {
   try {
-    const response = await fetch("http://127.0.0.1:5000/api/login", {
+    const response = await fetch(`${URL_backend}/api/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -542,7 +542,7 @@ const login = async (email: string, password: string): Promise<boolean> => {
 const register = async ( name: string, email: string, password: string): Promise<boolean> => {
   
   try {
-    const response = await fetch("http://127.0.0.1:5000/api/register", {
+    const response = await fetch(`${URL_backend}/api/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -628,7 +628,7 @@ const register = async ( name: string, email: string, password: string): Promise
       // Obter ID do usuário logado
       const userId = auth.user?.id || currentUser.id;
       
-      const response = await fetch("http://127.0.0.1:5000/api/responses", {
+      const response = await fetch(`${URL_backend}/api/responses`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

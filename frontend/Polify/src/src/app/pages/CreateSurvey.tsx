@@ -130,7 +130,7 @@ export function CreateSurvey() {
         const question = questions[i];
         
         try {
-          const response = await fetch(`http://127.0.0.1:5000/api/questions`, {
+          const response = await fetch(`${URL_backend}/api/questions`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json"

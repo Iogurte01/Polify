@@ -1,4 +1,4 @@
-export const URL_backend = 'https://concert-acting-discounted-development.trycloudflare.com'
+export const URL_backend = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '')
 
 export const categories = [
   "Pesquisa de Mercado",
