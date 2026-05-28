@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router";
 import { ArrowLeft, Users, MessageSquare, Clock, CheckCircle } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
 import { toast } from "sonner";
+import { URL_backend } from "../data/mockData";
 
 export function ViewResponses() {
   const { id } = useParams();

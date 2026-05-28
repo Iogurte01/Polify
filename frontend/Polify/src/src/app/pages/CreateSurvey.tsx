@@ -13,7 +13,7 @@ import {
   Send,
   Info,
 } from "lucide-react";
-import { categories, brazilianStates } from "../data/mockData";
+import { categories, brazilianStates, URL_backend } from "../data/mockData";
 import { useApp } from "../contexts/AppContext";
 import { CityAutocomplete } from "../components/CityAutocomplete";
 import { toast } from "sonner";

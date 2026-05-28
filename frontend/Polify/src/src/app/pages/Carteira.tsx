@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 
 export function Carteira() {
-  const { tokenBalance, tokenHistory, addTokens, auth, userLevel, t } = useApp();
+  const { tokenBalance, tokenHistory, addTokens, auth, userLevel } = useApp();
   const [showBetaWarning, setShowBetaWarning] = useState(false);
   const [showPlanSelection, setShowPlanSelection] = useState(false);
   const [showReasonForm, setShowReasonForm] = useState(false);
