@@ -3,9 +3,10 @@ import {
   Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
   Info, ShoppingCart, CheckCircle, Shield, AlertCircle, X,
 } from "lucide-react";
-import { tokenPackages } from "../data/mockData";
+import { tokenPackages, URL_backend } from "../data/mockData";
 import { useApp } from "../contexts/AppContext";
 import { toast } from "sonner";
+
 
 export function Carteira() {
   const { tokenBalance, tokenHistory, addTokens, auth, userLevel, t } = useApp();
