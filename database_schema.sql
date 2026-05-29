@@ -99,7 +99,7 @@ CREATE TABLE perguntas_form (
     id_form INTEGER NOT NULL REFERENCES header_formulario(id) ON DELETE CASCADE,
     num_pergunta INTEGER NOT NULL,
     pergunta TEXT NOT NULL,
-    alternativa TEXT,
+    alternativa JSONB DEFAULT '[]'::jsonb,
     tipagem VARCHAR(50) NOT NULL CHECK (tipagem IN ('text', 'multiple_choice', 'checkbox', 'rating', 'date', 'number')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -128,7 +128,7 @@ CREATE TABLE resp_form (
     id SERIAL PRIMARY KEY,
     id_perg INTEGER NOT NULL REFERENCES perguntas_form(id_perg) ON DELETE CASCADE,
     id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    resposta TEXT NOT NULL,
+    resposta JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(id_perg, id_user)

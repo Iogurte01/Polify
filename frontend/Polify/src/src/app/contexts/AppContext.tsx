@@ -85,7 +85,7 @@ interface AppContextType extends AppState {
   activeFilterCount: number;
   addTokens: (amount: number, description: string) => void;
   spendTokens: (amount: number, description: string) => boolean;
-  answerSurvey: (surveyId: string, responses: Array<{id_perg: number, resposta: string}>) => Promise<{success: boolean, message: string}>;
+  answerSurvey: (surveyId: string, responses: Array<{id_perg: number, resposta: string | number | string[]}>) => Promise<{success: boolean, message: string}>;
   publishSurvey: (survey: Omit<MySurvey, "id" | "responses" | "createdAt" | "source" | "avgQuality" | "validResponses">, cost: number, feedSurvey: Omit<Survey, "id">) => boolean;
   deleteSurvey: (id: string) => Promise<boolean>;
   duplicateSurvey: (id: string) => void;
@@ -623,7 +623,7 @@ const register = async ( name: string, email: string, password: string): Promise
   }, [tokenBalance]);
 
   // Survey answering
-  const answerSurvey = useCallback(async (surveyId: string, responses: Array<{id_perg: number, resposta: string}>) => {
+  const answerSurvey = useCallback(async (surveyId: string, responses: Array<{id_perg: number, resposta: string | number | string[]}>) => {
     try {
       // Obter ID do usuário logado
       const userId = auth.user?.id || currentUser.id;

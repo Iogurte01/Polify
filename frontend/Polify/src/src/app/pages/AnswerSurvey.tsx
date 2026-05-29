@@ -4,14 +4,36 @@ import { Clock, Coins, ArrowLeft, CheckCircle, AlertCircle } from "lucide-react"
 import { useApp } from "../contexts/AppContext";
 import { toast } from "sonner";
 
-// Mock questions for surveys
-const surveyQuestions = [
-  { id: "sq1", text: "Como você avalia sua experiência com este tema?", type: "scale" as const },
-  { id: "sq2", text: "Qual opção melhor descreve sua opinião?", type: "multiple" as const, options: ["Concordo totalmente", "Concordo parcialmente", "Neutro", "Discordo parcialmente", "Discordo totalmente"] },
-  { id: "sq3", text: "Com que frequência você interage com este assunto?", type: "multiple" as const, options: ["Diariamente", "Semanalmente", "Mensalmente", "Raramente", "Nunca"] },
-  { id: "sq4", text: "Descreva brevemente sua perspectiva:", type: "open" as const },
-  { id: "sq5", text: "Recomendaria participar desta pesquisa a outros?", type: "multiple" as const, options: ["Sim, com certeza", "Provavelmente sim", "Talvez", "Provavelmente não", "Não"] },
-];
+type AnswerValue = string | number | string[];
+
+const normalizeQuestionOptions = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter((item) => item.length > 0);
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item).trim()).filter((item) => item.length > 0);
+      }
+      if (typeof parsed === "string") {
+        return [parsed.trim()].filter((item) => item.length > 0);
+      }
+    } catch {
+      // Legacy comma-separated data is only normalized for backward compatibility.
+    }
+
+    return trimmed.includes(",")
+      ? trimmed.split(",").map((item) => item.trim()).filter((item) => item.length > 0)
+      : [trimmed];
+  }
+
+  return [];
+};
 
 export function AnswerSurvey() {
   const { id } = useParams();
@@ -22,7 +44,7 @@ export function AnswerSurvey() {
   const [loading, setLoading] = useState(true);
   const [started, setStarted] = useState(false);
   const [currentQ, setCurrentQ] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -62,6 +84,20 @@ export function AnswerSurvey() {
       <div className="max-w-[800px] mx-auto px-8 py-16 text-center">
         <AlertCircle size={40} className="mx-auto text-muted-foreground mb-3" />
         <p className="text-muted-foreground">Formulário não encontrado.</p>
+        <button onClick={() => navigate("/")} className="mt-4 text-[#6366f1] hover:text-[#5558e6]">
+          {t("general.back")}
+        </button>
+      </div>
+    );
+  }
+
+  const questions = Array.isArray(formDetails.questions) ? formDetails.questions : [];
+
+  if (questions.length === 0) {
+    return (
+      <div className="max-w-[800px] mx-auto px-8 py-16 text-center">
+        <AlertCircle size={40} className="mx-auto text-muted-foreground mb-3" />
+        <p className="text-muted-foreground">Este formulário não possui perguntas configuradas.</p>
         <button onClick={() => navigate("/")} className="mt-4 text-[#6366f1] hover:text-[#5558e6]">
           {t("general.back")}
         </button>
@@ -118,14 +154,46 @@ export function AnswerSurvey() {
 
   const handleSubmit = async () => {
     try {
-      // Coletar respostas do estado answers
-      const responsesArray = formDetails.questions?.map((question: any) => ({
-        id_perg: question.id_perg,
-        resposta: answers[question.id_perg.toString()] || ""
-      })).filter((resp: any) => resp.resposta.trim() !== "") || [];
+      const responsesArray: Array<{ id_perg: number; resposta: AnswerValue }> = [];
 
-      if (responsesArray.length === 0) {
-        toast.error("Por favor, responda pelo menos uma pergunta");
+      for (const question of questions) {
+        const questionKey = question.id_perg.toString();
+        const answer = answers[questionKey];
+
+        if (question.tipagem === "checkbox") {
+          if (!Array.isArray(answer) || answer.length === 0) {
+            toast.error(`Responda a pergunta ${question.num_pergunta || questionKey}`);
+            return;
+          }
+          responsesArray.push({ id_perg: question.id_perg, resposta: answer });
+          continue;
+        }
+
+        if (question.tipagem === "multiple_choice" || question.tipagem === "text" || question.tipagem === "date") {
+          if (typeof answer !== "string" || !answer.trim()) {
+            toast.error(`Responda a pergunta ${question.num_pergunta || questionKey}`);
+            return;
+          }
+          responsesArray.push({ id_perg: question.id_perg, resposta: answer.trim() });
+          continue;
+        }
+
+        if (question.tipagem === "rating" || question.tipagem === "number") {
+          if (answer === undefined || answer === null || answer === "") {
+            toast.error(`Responda a pergunta ${question.num_pergunta || questionKey}`);
+            return;
+          }
+
+          const normalizedAnswer = typeof answer === "number" ? answer : Number(answer);
+          if (Number.isNaN(normalizedAnswer)) {
+            toast.error(`Responda a pergunta ${question.num_pergunta || questionKey}`);
+            return;
+          }
+          responsesArray.push({ id_perg: question.id_perg, resposta: normalizedAnswer });
+          continue;
+        }
+
+        toast.error(`Tipo de pergunta não suportado: ${question.tipagem}`);
         return;
       }
 
@@ -146,10 +214,10 @@ export function AnswerSurvey() {
     }
   };
 
-  const q = formDetails.questions?.[currentQ] || surveyQuestions[currentQ];
+  const q = questions[currentQ];
 
   if (!started) {
-    const estimatedMinutes = Math.max(5, (formDetails.questions?.length || 5) * 2);
+    const estimatedMinutes = Math.max(5, questions.length * 2);
     return (
       <div className="max-w-[800px] mx-auto px-8 py-8">
         <button onClick={() => navigate("/")} className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground mb-6 transition-colors">
@@ -220,7 +288,7 @@ export function AnswerSurvey() {
             {formDetails.categoria}
           </span>
           <span className="text-muted-foreground" style={{ fontSize: "13px" }}>
-            Pergunta {currentQ + 1} de {formDetails.questions?.length || 1}
+            Pergunta {currentQ + 1} de {questions.length}
           </span>
         </div>
 
@@ -236,15 +304,16 @@ export function AnswerSurvey() {
             </h2>
 
             {/* Question type rendering */}
-            {q.tipagem === 'multiple_choice' && q.alternativa && (
+            {q.tipagem === 'multiple_choice' && normalizeQuestionOptions(q.alternativa).length > 0 && (
               <div className="space-y-3">
-                {q.alternativa.split(',').map((opt: string, idx: number) => (
+                {normalizeQuestionOptions(q.alternativa).map((opt: string, idx: number) => (
                   <label key={idx} className="flex items-center gap-3 p-4 border border-border rounded-lg cursor-pointer hover:bg-secondary transition-colors">
                     <input
                       type="radio"
                       name={`question-${q.id_perg}`}
                       value={opt.trim()}
-                      onChange={(e) => setAnswers({ ...answers, [q.id_perg.toString()]: e.target.value })}
+                      checked={answers[q.id_perg.toString()] === opt.trim()}
+                      onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id_perg.toString()]: e.target.value }))}
                       className="w-4 h-4 text-[#6366f1]"
                     />
                     <span className="text-foreground">{opt.trim()}</span>
@@ -258,38 +327,41 @@ export function AnswerSurvey() {
                 placeholder="Digite sua resposta aqui..."
                 className="w-full bg-input-background border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground resize-none"
                 rows={4}
-                onChange={(e) => setAnswers({ ...answers, [q.id_perg.toString()]: e.target.value })}
+                value={typeof answers[q.id_perg.toString()] === "string" ? (answers[q.id_perg.toString()] as string) : ""}
+                onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id_perg.toString()]: e.target.value }))}
               />
             )}
 
-            {/* Fallback for mock questions */}
-            {!q.tipagem && q.type === 'multiple' && q.options && (
+            {q.tipagem === 'checkbox' && normalizeQuestionOptions(q.alternativa).length > 0 && (
               <div className="space-y-3">
-                {q.options.map((opt: string, idx: number) => (
-                  <label key={idx} className="flex items-center gap-3 p-4 border border-border rounded-lg cursor-pointer hover:bg-secondary transition-colors">
-                    <input
-                      type="radio"
-                      name={`question-${q.id}`}
-                      value={opt}
-                      onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
-                      className="w-4 h-4 text-[#6366f1]"
-                    />
-                    <span className="text-foreground">{opt}</span>
-                  </label>
-                ))}
+                {normalizeQuestionOptions(q.alternativa).map((opt: string, idx: number) => {
+                  const selectedValues = Array.isArray(answers[q.id_perg.toString()]) ? (answers[q.id_perg.toString()] as string[]) : [];
+                  const isChecked = selectedValues.includes(opt.trim());
+
+                  return (
+                    <label key={idx} className="flex items-center gap-3 p-4 border border-border rounded-lg cursor-pointer hover:bg-secondary transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          setAnswers((prev) => {
+                            const currentValues = Array.isArray(prev[q.id_perg.toString()]) ? (prev[q.id_perg.toString()] as string[]) : [];
+                            const nextValues = e.target.checked
+                              ? [...currentValues, opt.trim()].filter((item, index, arr) => arr.indexOf(item) === index)
+                              : currentValues.filter((item) => item !== opt.trim());
+                            return { ...prev, [q.id_perg.toString()]: nextValues };
+                          });
+                        }}
+                        className="w-4 h-4 text-[#6366f1]"
+                      />
+                      <span className="text-foreground">{opt.trim()}</span>
+                    </label>
+                  );
+                })}
               </div>
             )}
 
-            {!q.tipagem && q.type === 'open' && (
-              <textarea
-                placeholder="Digite sua resposta aqui..."
-                className="w-full bg-input-background border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground resize-none"
-                rows={4}
-                onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
-              />
-            )}
-
-            {!q.tipagem && q.type === 'scale' && (
+            {q.tipagem === 'rating' && (
               <div className="flex items-center gap-3">
                 {[1, 2, 3, 4, 5].map((num) => (
                   <label key={num} className="flex items-center gap-2 cursor-pointer">
@@ -297,7 +369,8 @@ export function AnswerSurvey() {
                       type="radio"
                       name={`question-${q.id}`}
                       value={num}
-                      onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                      checked={Number(answers[q.id_perg.toString()]) === num}
+                      onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id_perg.toString()]: Number(e.target.value) }))}
                       className="w-4 h-4 text-[#6366f1]"
                     />
                     <span className="w-10 h-10 rounded-lg border-2 border-border flex items-center justify-center text-foreground hover:bg-secondary transition-colors">
@@ -305,6 +378,30 @@ export function AnswerSurvey() {
                     </span>
                   </label>
                 ))}
+              </div>
+            )}
+
+            {q.tipagem === 'number' && (
+              <input
+                type="number"
+                className="w-full bg-input-background border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground"
+                value={typeof answers[q.id_perg.toString()] === "number" ? String(answers[q.id_perg.toString()]) : ""}
+                onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id_perg.toString()]: e.target.value === "" ? "" : Number(e.target.value) }))}
+              />
+            )}
+
+            {q.tipagem === 'date' && (
+              <input
+                type="date"
+                className="w-full bg-input-background border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground"
+                value={typeof answers[q.id_perg.toString()] === "string" ? (answers[q.id_perg.toString()] as string) : ""}
+                onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id_perg.toString()]: e.target.value }))}
+              />
+            )}
+
+            {!q.tipagem && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 rounded-lg px-4 py-3 text-sm">
+                Esta pergunta não tem tipagem válida para renderização.
               </div>
             )}
           </div>

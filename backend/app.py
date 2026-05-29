@@ -1,8 +1,11 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
+from psycopg2.extras import Json
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
+import json
+import re
 from dotenv import load_dotenv
 
 app = Flask(__name__)
@@ -24,6 +27,149 @@ def get_connection():
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD") or os.getenv("DB_password")
     )
+
+
+def _parse_jsonish_value(value):
+    if value is None:
+        return None
+
+    if isinstance(value, (list, dict, int, float, bool)):
+        return value
+
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped == "":
+            return ""
+
+        try:
+            return json.loads(stripped)
+        except json.JSONDecodeError:
+            return value
+
+    return value
+
+
+def normalize_options_value(value):
+    parsed = _parse_jsonish_value(value)
+
+    if parsed is None or parsed == "":
+        return []
+
+    if isinstance(parsed, list):
+        items = parsed
+    elif isinstance(parsed, tuple):
+        items = list(parsed)
+    elif isinstance(parsed, str):
+        items = [part.strip() for part in re.split(r"\s*,\s*", parsed) if part.strip()]
+    else:
+        items = [parsed]
+
+    normalized_items = []
+    for item in items:
+        if item is None:
+            continue
+        text = str(item).strip()
+        if text:
+            normalized_items.append(text)
+
+    return normalized_items
+
+
+def normalize_question_response(question_type, raw_value):
+    parsed = _parse_jsonish_value(raw_value)
+
+    if question_type in ("text", "date"):
+        if isinstance(parsed, str):
+            text = parsed.strip()
+            if not text:
+                raise ValueError("resposta deve ser uma string não vazia")
+            return text
+
+        if isinstance(parsed, (int, float, bool)):
+            return str(parsed)
+
+        raise ValueError("resposta deve ser uma string")
+
+    if question_type in ("rating", "number"):
+        if isinstance(parsed, (int, float)):
+            return parsed
+
+        if isinstance(parsed, str):
+            text = parsed.strip()
+            if not text:
+                raise ValueError("resposta deve ser um número ou string numérica")
+
+            if re.fullmatch(r"-?\d+", text):
+                return int(text)
+
+            try:
+                return float(text)
+            except ValueError as exc:
+                raise ValueError("resposta deve ser um número ou string numérica") from exc
+
+        raise ValueError("resposta deve ser um número ou string numérica")
+
+    if question_type == "multiple_choice":
+        if isinstance(parsed, list):
+            if len(parsed) != 1:
+                raise ValueError("múltipla escolha aceita apenas uma resposta")
+            parsed = parsed[0]
+
+        if isinstance(parsed, (int, float, bool)):
+            parsed = str(parsed)
+
+        if not isinstance(parsed, str) or not parsed.strip():
+            raise ValueError("múltipla escolha exige uma resposta em texto")
+
+        return parsed.strip()
+
+    if question_type == "checkbox":
+        if isinstance(parsed, list):
+            normalized_items = []
+            for item in parsed:
+                if item is None:
+                    continue
+                text = str(item).strip()
+                if text:
+                    normalized_items.append(text)
+            if not normalized_items:
+                raise ValueError("checkbox exige ao menos uma opção selecionada")
+            return normalized_items
+
+        if isinstance(parsed, str):
+            text = parsed.strip()
+            if text.startswith("["):
+                try:
+                    parsed_list = json.loads(text)
+                except json.JSONDecodeError as exc:
+                    raise ValueError("checkbox deve ser um array de respostas") from exc
+
+                if not isinstance(parsed_list, list):
+                    raise ValueError("checkbox deve ser um array de respostas")
+
+                normalized_items = []
+                for item in parsed_list:
+                    if item is None:
+                        continue
+                    item_text = str(item).strip()
+                    if item_text:
+                        normalized_items.append(item_text)
+                if not normalized_items:
+                    raise ValueError("checkbox exige ao menos uma opção selecionada")
+                return normalized_items
+
+        raise ValueError("checkbox deve ser um array de respostas")
+
+    raise ValueError(f"tipagem inválida: {question_type}")
+
+
+def normalize_question_response_for_output(question_type, raw_value):
+    try:
+        return normalize_question_response(question_type, raw_value)
+    except ValueError:
+        if question_type == "checkbox":
+            return normalize_options_value(raw_value)
+        return raw_value
 
 XP_PER_COMPLETED_SURVEY = 10
 
@@ -435,12 +581,21 @@ def create_question():
     id_form = data.get("id_form")
     num_pergunta = data.get("num_pergunta")
     pergunta = data.get("pergunta")
-    alternativa = data.get("alternativa", "")
+    alternativa = data.get("alternativa", [])
     tipagem = data.get("tipagem")
 
     # Validar campos obrigatórios
     if not id_form or not num_pergunta or not pergunta or not tipagem:
         return jsonify({"success": False, "message": "Campos obrigatórios: id_form, num_pergunta, pergunta, tipagem"}), 400
+
+    if tipagem not in ("text", "multiple_choice", "checkbox", "rating", "date", "number"):
+        return jsonify({"success": False, "message": "tipagem inválida"}), 400
+
+    normalized_alternativa = []
+    if tipagem in ("multiple_choice", "checkbox"):
+        normalized_alternativa = normalize_options_value(alternativa)
+        if not normalized_alternativa:
+            return jsonify({"success": False, "message": "alternativa deve conter ao menos uma opção"}), 400
 
     conn = None
     cur = None
@@ -464,7 +619,7 @@ def create_question():
             VALUES (%s, %s, %s, %s, %s)
             RETURNING id_perg, created_at
             """,
-            (id_form, num_pergunta, pergunta, alternativa, tipagem)
+            (id_form, num_pergunta, pergunta, Json(normalized_alternativa), tipagem)
         )
 
         result = cur.fetchone()
@@ -478,7 +633,7 @@ def create_question():
             "id_form": id_form,
             "num_pergunta": num_pergunta,
             "pergunta": pergunta,
-            "alternativa": alternativa,
+            "alternativa": normalized_alternativa,
             "tipagem": tipagem,
             "created_at": created_at.isoformat() if created_at else None
         }
@@ -489,6 +644,10 @@ def create_question():
             "question": question_data
         }), 201
 
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"ERROR: {str(e)}")
         return jsonify({"success": False, "message": f"Erro ao criar pergunta: {str(e)}"}), 500
 
     finally:
@@ -646,7 +805,7 @@ def get_form_details(form_id):
                 "id_perg": id_perg,
                 "num_pergunta": num_pergunta,
                 "pergunta": pergunta,
-                "alternativa": alternativa,
+                "alternativa": normalize_options_value(alternativa),
                 "tipagem": tipagem
             })
 
@@ -775,6 +934,8 @@ def get_survey_responses(survey_id):
             pf.id_perg,
             pf.pergunta,
             pf.num_pergunta,
+            pf.tipagem,
+            pf.alternativa,
             u.nome || ' ' || COALESCE(u.sobrenome, '') as respondent_name
         FROM resp_form rf
         JOIN perguntas_form pf ON rf.id_perg = pf.id_perg
@@ -789,7 +950,7 @@ def get_survey_responses(survey_id):
         # Group responses by user
         responses_by_user = {}
         for row in response_rows:
-            (resp_id, user_id_resp, resposta, created_at, perg_id, pergunta, num_pergunta, respondent_name) = row
+            (resp_id, user_id_resp, resposta, created_at, perg_id, pergunta, num_pergunta, tipagem, alternativa, respondent_name) = row
             
             if user_id_resp not in responses_by_user:
                 responses_by_user[user_id_resp] = {
@@ -804,7 +965,9 @@ def get_survey_responses(survey_id):
                 "id_perg": perg_id,
                 "pergunta": pergunta,
                 "num_pergunta": num_pergunta,
-                "resposta": resposta
+                "tipagem": tipagem,
+                "alternativa": normalize_options_value(alternativa),
+                "resposta": normalize_question_response_for_output(tipagem, resposta)
             })
 
         # Convert to array and sort by creation date
@@ -875,13 +1038,16 @@ def save_responses():
     response_question_ids = []
     for response in responses:
         id_perg = response.get("id_perg")
-        if not id_perg:
+        if id_perg is None:
             return jsonify({"success": False, "message": "Cada resposta deve ter id_perg e resposta"}), 400
         try:
             id_perg = int(id_perg)
         except (TypeError, ValueError):
             return jsonify({"success": False, "message": "id_perg inválido"}), 400
         response_question_ids.append(id_perg)
+
+    if len(response_question_ids) != len(set(response_question_ids)):
+        return jsonify({"success": False, "message": "Cada pergunta deve aparecer apenas uma vez no payload"}), 400
 
     conn = None
     cur = None
@@ -913,10 +1079,26 @@ def save_responses():
         if not survey_exists:
             return jsonify({"success": False, "message": "Formulário não encontrado"}), 404
 
-        # Garantir que o payload contém exatamente todas as perguntas do formulário
-        cur.execute("SELECT COUNT(*) FROM perguntas_form WHERE id_form = %s", (survey_id,))
-        total_questions = cur.fetchone()[0] or 0
-        if len(response_question_ids) != total_questions:
+        # Carregar perguntas do formulário e validar contra o payload
+        cur.execute(
+            """
+            SELECT id_perg, tipagem, alternativa
+            FROM perguntas_form
+            WHERE id_form = %s
+            ORDER BY num_pergunta
+            """,
+            (survey_id,)
+        )
+        survey_questions = cur.fetchall()
+        question_map = {
+            question_id: {
+                "tipagem": tipagem,
+                "alternativa": normalize_options_value(alternativa),
+            }
+            for question_id, tipagem, alternativa in survey_questions
+        }
+
+        if len(response_question_ids) != len(question_map):
             return jsonify({
                 "success": False,
                 "message": "Responda todas as perguntas para concluir a pesquisa"
@@ -924,9 +1106,7 @@ def save_responses():
 
         # Validar que todas as perguntas pertencem ao mesmo formulário
         for id_perg in response_question_ids:
-            cur.execute("SELECT id_form FROM perguntas_form WHERE id_perg = %s", (id_perg,))
-            question_form = cur.fetchone()
-            if not question_form or question_form[0] != survey_id:
+            if id_perg not in question_map:
                 return jsonify({"success": False, "message": f"Pergunta {id_perg} não pertence ao formulário informado"}), 400
 
         # Cria a linha de participação caso ainda não exista e bloqueia para evitar duplicidade
@@ -959,16 +1139,19 @@ def save_responses():
         saved_responses = []
         for response in responses:
             id_perg = response.get("id_perg")
-            resposta_text = response.get("resposta")
+            resposta_raw = response.get("resposta")
 
-            if not id_perg or not resposta_text:
+            if id_perg is None:
                 return jsonify({"success": False, "message": f"Cada resposta deve ter id_perg e resposta"}), 400
 
-            # Validar que a pergunta existe
-            cur.execute("SELECT id_perg FROM perguntas_form WHERE id_perg = %s", (id_perg,))
-            question_exists = cur.fetchone()
-            if not question_exists:
+            question_meta = question_map.get(id_perg)
+            if not question_meta:
                 return jsonify({"success": False, "message": f"Pergunta {id_perg} não encontrada"}), 404
+
+            try:
+                resposta_value = normalize_question_response(question_meta["tipagem"], resposta_raw)
+            except ValueError as validation_error:
+                return jsonify({"success": False, "message": str(validation_error)}), 400
 
             # Inserir ou atualizar resposta (UPSERT)
             cur.execute(
@@ -979,7 +1162,7 @@ def save_responses():
                 DO UPDATE SET resposta = EXCLUDED.resposta, updated_at = CURRENT_TIMESTAMP
                 RETURNING id, created_at
                 """,
-                (id_perg, id_user, resposta_text)
+                (id_perg, id_user, Json(resposta_value))
             )
 
             result = cur.fetchone()

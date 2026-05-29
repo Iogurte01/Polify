@@ -79,7 +79,8 @@ export function CreateSurvey() {
     setQuestions(questions.map((q) => q.id === questionId ? { ...q, options: q.options.map((o, i) => (i === index ? value : o)) } : q));
   };
 
-  const estimatedMinutes = Math.max(3, questions.length * 2 + (includeDemographics ? 2 : 0));
+  const validQuestions = questions.filter((question) => question.text.trim());
+  const estimatedMinutes = Math.max(3, validQuestions.length * 2 + (includeDemographics ? 2 : 0));
   const estimatedTime = `${estimatedMinutes} min`;
   const totalTokens = estimatedMinutes * 5;
   const respondentReward = estimatedMinutes;
@@ -106,6 +107,15 @@ export function CreateSurvey() {
     setErrors({});
 
     try {
+      const questionsToPersist = questions.filter((question) => question.text.trim());
+
+      if (questionsToPersist.length === 0) {
+        const errorMessage = t("create.error.questions");
+        setErrors({ submit: errorMessage });
+        toast.error(errorMessage);
+        return;
+      }
+
       // First create the form
       const formResult = await createForm({
         nome_formulario: title,
@@ -126,8 +136,12 @@ export function CreateSurvey() {
       const formId = formResult.form.id;
       let questionsSaved = true;
       
-      for (let i = 0; i < questions.length; i++) {
-        const question = questions[i];
+      for (let i = 0; i < questionsToPersist.length; i++) {
+        const question = questionsToPersist[i];
+        const backendTipagem = question.type === "multiple" ? "multiple_choice" : question.type === "checkbox" ? "checkbox" : question.type === "scale" ? "rating" : "text";
+        const alternativa = question.type === "multiple" || question.type === "checkbox"
+          ? question.options.map((option) => option.trim()).filter((option) => option.length > 0)
+          : [];
         
         try {
           const response = await fetch(`${URL_backend}/api/questions`, {
@@ -139,10 +153,8 @@ export function CreateSurvey() {
               id_form: formId,
               num_pergunta: i + 1,
               pergunta: question.text,
-              alternativa: question.options ? question.options.join(",") : "",
-              tipagem: question.type === "multiple" ? "multiple_choice" : 
-                       question.type === "open" ? "text" : 
-                       question.type === "scale" ? "rating" : "text"
+              alternativa,
+              tipagem: backendTipagem
             })
           });
 

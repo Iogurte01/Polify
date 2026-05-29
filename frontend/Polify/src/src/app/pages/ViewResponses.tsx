@@ -2,8 +2,44 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { ArrowLeft, Users, MessageSquare, Clock, CheckCircle } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
-import { toast } from "sonner";
 import { URL_backend } from "../data/mockData";
+
+const normalizeStoredValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return value;
+    }
+  }
+
+  return value;
+};
+
+const normalizeOptions = (value: unknown): string[] => {
+  const parsed = normalizeStoredValue(value);
+
+  if (Array.isArray(parsed)) {
+    return parsed.map((item) => String(item).trim()).filter((item) => item.length > 0);
+  }
+
+  if (typeof parsed === "string") {
+    return parsed ? [parsed] : [];
+  }
+
+  if (parsed === null || parsed === undefined) {
+    return [];
+  }
+
+  return [String(parsed).trim()].filter((item) => item.length > 0);
+};
 
 export function ViewResponses() {
   const { id } = useParams();
@@ -14,6 +50,41 @@ export function ViewResponses() {
   const [responses, setResponses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const renderAnswerValue = (question: any) => {
+    const responseValue = normalizeStoredValue(question.resposta);
+
+    if (question.tipagem === "checkbox") {
+      const values = normalizeOptions(responseValue);
+      return (
+        <div className="flex flex-wrap gap-2">
+          {values.map((value: string) => (
+            <span key={value} className="px-3 py-1 rounded-full bg-[#6366f1]/10 text-[#6366f1] text-sm">
+              {value}
+            </span>
+          ))}
+        </div>
+      );
+    }
+
+    if (question.tipagem === "multiple_choice") {
+      return (
+        <span className="inline-flex px-3 py-1 rounded-full bg-secondary text-foreground text-sm">
+          {String(responseValue)}
+        </span>
+      );
+    }
+
+    if (question.tipagem === "rating" || question.tipagem === "number") {
+      return (
+        <span className="inline-flex px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-sm font-medium">
+          {String(responseValue)}
+        </span>
+      );
+    }
+
+    return <p className="text-muted-foreground">{String(responseValue)}</p>;
+  };
 
   useEffect(() => {
     const loadSurveyResponses = async () => {
@@ -210,7 +281,7 @@ export function ViewResponses() {
                   {response.questions && response.questions.map((q: any) => (
                     <div key={q.id_perg} className="bg-secondary/50 rounded-lg p-4">
                       <p className="text-foreground font-medium mb-2">{q.pergunta}</p>
-                      <p className="text-muted-foreground">{q.resposta}</p>
+                      {renderAnswerValue(q)}
                     </div>
                   ))}
                   
