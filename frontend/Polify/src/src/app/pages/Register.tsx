@@ -17,10 +17,34 @@ export function Register() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
+  const sanitizeName = (value: string) => value.replace(/[^A-Za-zÀ-ÿ\s'-]/g, "");
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+
+    if (!digits) return "";
+    if (digits.length <= 2) return `(${digits}`;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  };
+
+  const isValidName = (value: string) => /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'-]*$/.test(value);
+
+  const isValidPhone = (value: string) => /^\(\d{2}\) \d{5}-\d{4}$/.test(value);
+
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!name.trim()) e.name = t("auth.error.name");
-    if (!email.trim()) e.email = t("auth.error.email");
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPhone = phone.trim();
+
+    if (!trimmedName) e.name = t("auth.error.name");
+    else if (!isValidName(trimmedName)) e.name = t("auth.error.nameInvalid");
+
+    if (!trimmedEmail) e.email = t("auth.error.email");
+    if (!trimmedPhone) e.phone = t("auth.error.phone");
+    else if (!isValidPhone(trimmedPhone)) e.phone = t("auth.error.phoneFormat");
+
     if (!password) e.password = t("auth.error.password");
     else if (password.length < 6) e.password = t("auth.error.passwordMin");
     if (password !== confirmPassword) e.confirmPassword = t("auth.error.passwordMatch");
@@ -36,16 +60,20 @@ export function Register() {
     setLoading(true);
 
     setTimeout(async () => {
-      const success = await register(name, email, password, phone);
+      const result = await register(name.trim(), email.trim(), password, phone.trim());
 
       setLoading(false);
 
-      if (success) {
-        await login(email, password);
+      if (result.success) {
+        await login(email.trim(), password);
         toast.success(t("auth.welcome") + "!");
         navigate("/onborading");
       } else {
-        setErrors({ form: "Erro ao criar conta" });
+        if (result.status === 409) {
+          setErrors({ email: result.message || t("auth.error.emailInUse") });
+        } else {
+          setErrors({ form: result.message || t("auth.error.generic") });
+        }
       }
     }, 600);
   };
@@ -91,8 +119,9 @@ export function Register() {
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => { setName(e.target.value); setErrors({}); }}
-                  placeholder="Seu nome completo"
+                  onChange={(e) => { setName(sanitizeName(e.target.value)); setErrors({}); }}
+                  placeholder={t("auth.namePlaceholder")}
+                  autoComplete="name"
                   className={`w-full bg-input-background border rounded-lg pl-10 pr-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] ${errors.name ? "border-red-400" : "border-border"}`}
                   style={{ fontSize: "14px" }}
                 />
@@ -109,6 +138,7 @@ export function Register() {
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setErrors({}); }}
                   placeholder="seu@email.com"
+                  autoComplete="email"
                   className={`w-full bg-input-background border rounded-lg pl-10 pr-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] ${errors.email ? "border-red-400" : "border-border"}`}
                   style={{ fontSize: "14px" }}
                 />
@@ -122,12 +152,16 @@ export function Register() {
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => { setPhone(e.target.value); setErrors({}); }}
-                  placeholder={t("auth.phone")}
-                  className="w-full bg-input-background border rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] border-border"
+                  onChange={(e) => { setPhone(formatPhone(e.target.value)); setErrors({}); }}
+                  placeholder={t("auth.phonePlaceholder")}
+                  autoComplete="tel"
+                  inputMode="numeric"
+                  maxLength={15}
+                  className={`w-full bg-input-background border rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] ${errors.phone ? "border-red-400" : "border-border"}`}
                   style={{ fontSize: "14px" }}
                 />
               </div>
+              {errors.phone && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{errors.phone}</p>}
             </div>
 
             <div>
@@ -139,6 +173,7 @@ export function Register() {
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setErrors({}); }}
                   placeholder="••••••••"
+                  autoComplete="new-password"
                   className={`w-full bg-input-background border rounded-lg pl-10 pr-10 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] ${errors.password ? "border-red-400" : "border-border"}`}
                   style={{ fontSize: "14px" }}
                 />
@@ -162,6 +197,7 @@ export function Register() {
                   value={confirmPassword}
                   onChange={(e) => { setConfirmPassword(e.target.value); setErrors({}); }}
                   placeholder="••••••••"
+                  autoComplete="new-password"
                   className={`w-full bg-input-background border rounded-lg pl-10 pr-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] ${errors.confirmPassword ? "border-red-400" : "border-border"}`}
                   style={{ fontSize: "14px" }}
                 />
@@ -192,6 +228,8 @@ export function Register() {
             >
               {loading ? "..." : t("auth.register")}
             </button>
+
+            {errors.form && <p className="text-red-500 text-center" style={{ fontSize: "12px" }}>{errors.form}</p>}
           </form>
 
           <p className="text-center text-muted-foreground mt-6" style={{ fontSize: "13px" }}>

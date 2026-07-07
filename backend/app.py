@@ -171,6 +171,18 @@ def normalize_question_response_for_output(question_type, raw_value):
             return normalize_options_value(raw_value)
         return raw_value
 
+
+def normalize_email(email):
+    return email.strip().lower()
+
+
+def is_valid_full_name(name):
+    return bool(re.fullmatch(r"[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'-]*", name))
+
+
+def is_valid_phone_number(phone):
+    return bool(re.fullmatch(r"\(\d{2}\) \d{5}-\d{4}", phone))
+
 XP_PER_COMPLETED_SURVEY = 10
 
 XP_LEVELS = [
@@ -255,14 +267,20 @@ def get_user_progress_data(cur, user_id):
 def register():
     data = request.json
 
-    name = data.get("name")
-    email = data.get("email")
-    password = data.get("password")
-    phone = data.get("phone")
+    name = (data.get("name") or "").strip()
+    email = normalize_email(data.get("email") or "")
+    password = data.get("password") or ""
+    phone = (data.get("phone") or "").strip()
 
   
     if not name or not email or not password or not phone:
         return jsonify({"success": False, "message": "Preencha todos os campos"}), 400
+
+    if not is_valid_full_name(name):
+        return jsonify({"success": False, "message": "Nome deve conter apenas letras"}), 400
+
+    if not is_valid_phone_number(phone):
+        return jsonify({"success": False, "message": "Telefone deve seguir o formato (12) 99677-1828"}), 400
 
     password_hash = generate_password_hash(password)
 
@@ -272,6 +290,18 @@ def register():
     try:
         conn = get_connection()
         cur = conn.cursor()
+
+        cur.execute(
+            "SELECT id FROM users WHERE LOWER(email) = LOWER(%s)",
+            (email,)
+        )
+
+        existing_user = cur.fetchone()
+        if existing_user:
+            return jsonify({
+                "success": False,
+                "message": "Email já cadastrado"
+            }), 409
 
   
         cur.execute(
@@ -309,8 +339,8 @@ def register():
 def login():
     data = request.json
 
-    email = data.get("email")
-    password = data.get("password")
+    email = normalize_email(data.get("email") or "")
+    password = data.get("password") or ""
 
     if not email or not password:
         return jsonify({"success": False, "message": "Email e senha obrigatórios"}), 400
@@ -324,7 +354,7 @@ def login():
         cur = conn.cursor()
 
         cur.execute(
-            "SELECT id, nome, email, password_hash FROM users WHERE email = %s",
+            "SELECT id, nome, email, password_hash FROM users WHERE LOWER(email) = LOWER(%s)",
             (email,)
         )
 

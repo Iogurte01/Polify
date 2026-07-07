@@ -75,7 +75,7 @@ interface AppContextType extends AppState {
   t: (key: string, replacements?: Record<string, string>) => string;
   login: (email: string, password: string) => Promise<boolean>;
   loginGoogle: (accessToken: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string, phone: string) => Promise<{ success: boolean; message?: string }>;
+  register: (name: string, email: string, password: string, phone: string) => Promise<{ success: boolean; message?: string; status?: number }>;
   logout: () => void;
   fetchForms: () => Promise<boolean>;
   fetchFormDetails: (formId: string) => Promise<{ success: boolean; form?: any; message?: string }>;
@@ -569,7 +569,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 }, []);
 
-  const register = async (name: string, email: string, password: string, phone: string): Promise<{ success: boolean; message?: string }> => {
+  const register = async (name: string, email: string, password: string, phone: string): Promise<{ success: boolean; message?: string; status?: number }> => {
     try {
       const response = await fetch(`${URL_backend}/api/register`, {
         method: "POST",
@@ -587,7 +587,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       return {
         success: Boolean(data.success),
-        message: data.message || (response.ok ? "Cadastro realizado com sucesso" : "Erro ao criar usuário")
+        message: data.message || (response.ok ? "Cadastro realizado com sucesso" : "Erro ao criar usuário"),
+        status: response.status,
       };
     } catch (error) {
       console.error("Erro no registro:", error);
