@@ -88,11 +88,11 @@ export function MySurveys() {
     toast.success(t("mySurveys.duplicateSuccess"));
   };
 
-  const handleBoost = (id: string) => {
+  const handleBoost = async (id: string) => {
     const survey = mySurveys.find(s => s.id === id);
     if (!survey) return;
     if (survey.responses < 20) { toast.error(t("boost.locked")); setBoostModal(null); return; }
-    const success = boostSurvey(id);
+    const success = await boostSurvey(id);
     if (success) { toast.success(t("boost.success")); } else { toast.error(t("create.error.balance")); }
     setBoostModal(null);
   };

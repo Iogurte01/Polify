@@ -9,9 +9,17 @@ import translations, { type Lang } from "../i18n/translations";
 
 
 // ── Types ──
+export interface User {
+  id?: number;
+  nome?: string;
+  email: string;
+  telefone?: string; 
+  phone?: string;
+}
+
 interface AuthState {
   isAuthenticated: boolean;
-  user: UserProfile | null;
+  user: UserProfile | User | null;
 }
 
 interface MySurvey {
@@ -62,10 +70,12 @@ interface AppState {
 }
 
 interface AppContextType extends AppState {
+  user: User | null; 
+  setUser: (user: User | null) => void; 
   t: (key: string, replacements?: Record<string, string>) => string;
   login: (email: string, password: string) => Promise<boolean>;
-  loginGoogle: () => void;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
+  loginGoogle: (accessToken: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string, phone: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   fetchForms: () => Promise<boolean>;
   fetchFormDetails: (formId: string) => Promise<{ success: boolean; form?: any; message?: string }>;
@@ -83,19 +93,19 @@ interface AppContextType extends AppState {
   setFilters: (filters: Partial<AppState["filters"]>) => void;
   clearFilters: () => void;
   activeFilterCount: number;
-  addTokens: (amount: number, description: string) => void;
-  spendTokens: (amount: number, description: string) => boolean;
+  addTokens: (amount: number, description: string) => Promise<boolean>;
+  spendTokens: (amount: number, description: string) => Promise<boolean>;
   answerSurvey: (surveyId: string, responses: Array<{id_perg: number, resposta: string | number | string[]}>) => Promise<{success: boolean, message: string}>;
   publishSurvey: (survey: Omit<MySurvey, "id" | "responses" | "createdAt" | "source" | "avgQuality" | "validResponses">, cost: number, feedSurvey: Omit<Survey, "id">) => boolean;
   deleteSurvey: (id: string) => Promise<boolean>;
   duplicateSurvey: (id: string) => void;
-  boostSurvey: (id: string) => boolean;
+  boostSurvey: (id: string) => Promise<boolean>;
   deleteAccount: () => void;
   changePassword: (currentPass: string, newPass: string) => boolean;
   rateRespondent: (respondentId: string, answers: Record<string, boolean>) => void;
   updateDemographics: (data: Partial<Demographics>) => void;
   completeOnboarding: () => void;
-  purchaseInsight: (id: string, price: number) => boolean;
+  purchaseInsight: (id: string, price: number) => Promise<boolean>;
   addMarketplaceSurvey: (title: string, id: string) => void;
   requestDataDeletion: () => void;
   downloadUserData: () => void;
@@ -119,6 +129,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (stored) { try { return JSON.parse(stored); } catch { /* noop */ } }
     return { isAuthenticated: false, user: null };
   });
+
+  const setUser = useCallback((newUser: User | null) => {
+    setAuth(prev => {
+      const updatedAuth = { ...prev, user: newUser };
+      localStorage.setItem("polify_auth", JSON.stringify(updatedAuth));
+      return updatedAuth;
+    });
+  }, []);
 
   const [tokenBalance, setTokenBalance] = useState(() => {
     const v = localStorage.getItem("polify_tokens");
@@ -424,7 +442,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error("Erro ao buscar minhas pesquisas:", error);
       return false;
     }
-  }, []);
+  }, [auth.user?.id]);
 
   // Create form in backend
   const createForm = useCallback(async (formData: {
@@ -484,17 +502,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [auth.user?.id, fetchForms]);
 
   // Auth
-const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${URL_backend}/api/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email,
+          password
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const authData = {
+          isAuthenticated: true,
+          user: data.user
+        };
+
+        setAuth(authData);
+        localStorage.setItem("polify_auth", JSON.stringify(authData));
+
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Erro no login:", error);
+      return false;
+    }
+  };
+
+ const loginGoogle = useCallback(async (accessToken: string): Promise<boolean> => {
   try {
-    const response = await fetch(`${URL_backend}/api/login`, {
+    const response = await fetch(`${URL_backend}/api/auth/google`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        email,
-        password
-      })
+        access_token: accessToken,
+      }),
     });
 
     const data = await response.json();
@@ -502,7 +553,7 @@ const login = async (email: string, password: string): Promise<boolean> => {
     if (data.success) {
       const authData = {
         isAuthenticated: true,
-        user: data.user
+        user: data.user,
       };
 
       setAuth(authData);
@@ -513,54 +564,36 @@ const login = async (email: string, password: string): Promise<boolean> => {
 
     return false;
   } catch (error) {
-    console.error("Erro no login:", error);
+    console.error("Erro no login com Google:", error);
     return false;
   }
-};
+}, []);
 
-  const loginGoogle = useCallback(() => {
-    setAuth({ isAuthenticated: true, user: currentUser });
-    setTokenBalance(10);
-    setAvgRating(4);
-    setAnsweredSurveys([]);
-    setMySurveysList([]);
-    setSurveys(defaultSurveys);
-    setTokenHistory([]);
-    setRespondentRatings({});
-    setTrustScore(getDefaultTrustScore());
-    setTotalResponses(0);
-    setXpTotal(0);
-    setXpLevelId("iniciante");
-    setXpRange("0-99 XP");
-    setXpToNextLevel(100);
-    setXpProgressPercent(0);
-    setPurchasedInsights([]);
-    setOnboardingComplete(true); // Google login = skip onboarding
-  }, []);
+  const register = async (name: string, email: string, password: string, phone: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const response = await fetch(`${URL_backend}/api/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          phone,
+        }),
+      });
 
-  
-const register = async ( name: string, email: string, password: string): Promise<boolean> => {
-  
-  try {
-    const response = await fetch(`${URL_backend}/api/register`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name,
-        email,
-        password,
-      }),
-    });
-
-    const data = await response.json();
-    return data.success;
-  } catch (error) {
-    console.error("Erro no registro:", error);
-    return false;
-  }
-};
+      const data = await response.json();
+      return {
+        success: Boolean(data.success),
+        message: data.message || (response.ok ? "Cadastro realizado com sucesso" : "Erro ao criar usuário")
+      };
+    } catch (error) {
+      console.error("Erro no registro:", error);
+      return { success: false, message: "Erro ao conectar com o servidor" };
+    }
+  };
 
   const logout = useCallback(() => {
     setAuth({ isAuthenticated: false, user: null });
@@ -604,23 +637,61 @@ const register = async ( name: string, email: string, password: string): Promise
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
   // Tokens
-  const addTokens = useCallback((amount: number, description: string) => {
-    setTokenBalance((prev: number) => prev + amount);
-    setTokenHistory(prev => [{
-      id: `t${Date.now()}`, type: "earned", amount, description,
-      date: new Date().toISOString().split("T")[0],
-    }, ...prev]);
-  }, []);
+  const addTokens = useCallback(async (amount: number, description: string): Promise<boolean> => {
+    const userId = auth.user?.id || currentUser.id;
 
-  const spendTokens = useCallback((amount: number, description: string): boolean => {
-    if (tokenBalance < amount) return false;
-    setTokenBalance((prev: number) => prev - amount);
-    setTokenHistory(prev => [{
-      id: `t${Date.now()}`, type: "spent", amount, description,
-      date: new Date().toISOString().split("T")[0],
-    }, ...prev]);
-    return true;
-  }, [tokenBalance]);
+    try {
+      const response = await fetch(`${URL_backend}/api/wallet/credit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, amount, reason: description })
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        console.error("Erro ao creditar tokens:", data.message);
+        return false;
+      }
+
+      setTokenBalance(data.balance);
+      setTokenHistory(prev => [{
+        id: `t${Date.now()}`, type: "earned", amount, description,
+        date: new Date().toISOString().split("T")[0],
+      }, ...prev]);
+      return true;
+    } catch (error) {
+      console.error("Erro ao creditar tokens:", error);
+      return false;
+    }
+  }, [auth.user?.id]);
+
+  const spendTokens = useCallback(async (amount: number, description: string): Promise<boolean> => {
+    const userId = auth.user?.id || currentUser.id;
+
+    try {
+      const response = await fetch(`${URL_backend}/api/wallet/debit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, amount, reason: description })
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        console.error("Erro ao debitar tokens:", data.message);
+        return false;
+      }
+
+      setTokenBalance(data.balance);
+      setTokenHistory(prev => [{
+        id: `t${Date.now()}`, type: "spent", amount, description,
+        date: new Date().toISOString().split("T")[0],
+      }, ...prev]);
+      return true;
+    } catch (error) {
+      console.error("Erro ao debitar tokens:", error);
+      return false;
+    }
+  }, [auth.user?.id]);
 
   // Survey answering
   const answerSurvey = useCallback(async (surveyId: string, responses: Array<{id_perg: number, resposta: string | number | string[]}>) => {
@@ -664,7 +735,7 @@ const register = async ( name: string, email: string, password: string): Promise
       console.error("Erro ao salvar respostas:", error);
       return { success: false, message: "Erro ao conectar com o servidor" };
     }
-  }, [auth.user?.id, currentUser.id]);
+  }, [auth.user?.id]);
 
   const userLevel = gamificationLevels.find(level => level.id === xpLevelId) || gamificationLevels[0];
 
@@ -737,13 +808,11 @@ const register = async ( name: string, email: string, password: string): Promise
     });
   }, []);
 
-  const boostSurvey = useCallback((id: string): boolean => {
+  const boostSurvey = useCallback(async (id: string): Promise<boolean> => {
     const survey = mySurveysList.find(s => s.id === id);
     if (!survey || survey.responses < 20) return false;
-    if (tokenBalance < 10) return false;
-    spendTokens(10, `Boost: ${survey.title}`);
-    return true;
-  }, [mySurveysList, tokenBalance, spendTokens]);
+    return await spendTokens(10, `Boost: ${survey.title}`);
+  }, [mySurveysList, spendTokens]);
 
   const deleteAccount = useCallback(() => {
     localStorage.clear();
@@ -777,12 +846,13 @@ const register = async ( name: string, email: string, password: string): Promise
   }, []);
 
   // Purchase insight
-  const purchaseInsight = useCallback((id: string, price: number): boolean => {
-    if (tokenBalance < price) return false;
-    setPurchasedInsights(prev => [...prev, id]);
-    spendTokens(price, `Insight Polify: compra`);
-    return true;
-  }, [tokenBalance, spendTokens]);
+  const purchaseInsight = useCallback(async (id: string, price: number): Promise<boolean> => {
+    const success = await spendTokens(price, `Insight Polify: compra`);
+    if (success) {
+      setPurchasedInsights(prev => [...prev, id]);
+    }
+    return success;
+  }, [spendTokens]);
 
   // Add marketplace survey to my surveys
   const addMarketplaceSurvey = useCallback((title: string, id: string) => {
@@ -815,6 +885,8 @@ const register = async ( name: string, email: string, password: string): Promise
   }, [auth.user, avgRating, tokenBalance, answeredSurveys, demographics, trustScore, totalResponses, tokenHistoryList, mySurveysList, respondentRatings]);
 
   const value: AppContextType = {
+    user: auth.user as User | null,
+    setUser,
     auth, tokenBalance, avgRating, surveys, mySurveys: mySurveysList,
     tokenHistory: tokenHistoryList, answeredSurveys, respondentRatings,
     demographics, trustScore, totalResponses, xpTotal, xpLevelId, xpRange, xpToNextLevel, xpProgressPercent,

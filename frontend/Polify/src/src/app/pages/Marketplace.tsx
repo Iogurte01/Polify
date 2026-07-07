@@ -20,10 +20,10 @@ export function Marketplace() {
   });
   const [customErrors, setCustomErrors] = useState<Record<string, boolean>>({});
 
-  const handleBuy = (id: string) => {
+  const handleBuy = async (id: string) => {
     const survey = marketplaceSurveys.find(s => s.id === id);
     if (!survey) return;
-    const success = spendTokens(survey.price, `Comprou: ${survey.title}`);
+    const success = await spendTokens(survey.price, `Comprou: ${survey.title}`);
     if (success) {
       setPurchased(prev => [...prev, id]);
       addMarketplaceSurvey(survey.title, id);
@@ -34,8 +34,8 @@ export function Marketplace() {
     setConfirmId(null);
   };
 
-  const handleBuyInsight = (id: string, price: number) => {
-    const success = purchaseInsight(id, price);
+  const handleBuyInsight = async (id: string, price: number) => {
+    const success = await purchaseInsight(id, price);
     if (success) {
       toast.success("Insight adquirido com sucesso!");
     } else {

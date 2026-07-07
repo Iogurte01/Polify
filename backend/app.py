@@ -258,8 +258,10 @@ def register():
     name = data.get("name")
     email = data.get("email")
     password = data.get("password")
+    phone = data.get("phone")
 
-    if not name or not email or not password:
+  
+    if not name or not email or not password or not phone:
         return jsonify({"success": False, "message": "Preencha todos os campos"}), 400
 
     password_hash = generate_password_hash(password)
@@ -271,21 +273,19 @@ def register():
         conn = get_connection()
         cur = conn.cursor()
 
+  
         cur.execute(
-            "INSERT INTO users (nome, email, password_hash) VALUES (%s, %s, %s)",
-            (name, email, password_hash)
+            "INSERT INTO users (nome, email, password_hash, telefone) VALUES (%s, %s, %s, %s)",
+            (name, email, password_hash, phone)
         )
 
         conn.commit()
-        cur.close()
-        conn.close()
-
+        
         return jsonify({"success": True, "message": "Usuário criado com sucesso"})
     
     except Exception as e:
-        conn.rollback()
-        cur.close()
-        conn.close()
+        if conn:
+            conn.rollback()
 
         if "users_email_key" in str(e):
             return jsonify({
@@ -299,11 +299,11 @@ def register():
             }), 500
         
     finally:
+      
         if cur:
             cur.close()
         if conn:
             conn.close()
-
 
 @app.route("/api/login", methods=["POST"])
 def login():
@@ -1225,21 +1225,205 @@ def save_responses():
             conn.close()
 
 
+@app.route("/api/wallet/credit", methods=["POST"])
+def credit_wallet_tokens():
+    data = request.json or {}
+
+    user_id = data.get("user_id")
+    amount = data.get("amount")
+    reason = data.get("reason")
+    purchase_status = data.get("purchase_status", "completed")
+
+    if not user_id or amount is None or not reason:
+        return jsonify({
+            "success": False,
+            "message": "Campos obrigatórios: user_id, amount, reason"
+        }), 400
+
+    try:
+        user_id = int(user_id)
+        amount = int(amount)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "user_id e amount devem ser inteiros"}), 400
+
+    if amount <= 0:
+        return jsonify({"success": False, "message": "amount deve ser maior que zero"}), 400
+
+    if purchase_status not in {"pending", "completed", "failed", "canceled", "refunded"}:
+        return jsonify({"success": False, "message": "purchase_status inválido"}), 400
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+        user_exists = cur.fetchone()
+        if not user_exists:
+            return jsonify({"success": False, "message": "Usuário não encontrado"}), 404
+
+        cur.execute(
+            """
+            SELECT current_balance
+            FROM token_balance
+            WHERE user_id = %s
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """,
+            (user_id,)
+        )
+        last_balance_row = cur.fetchone()
+        previous_balance = int(last_balance_row[0]) if last_balance_row and last_balance_row[0] is not None else 0
+        new_balance = previous_balance + amount
+
+        cur.execute(
+            """
+            INSERT INTO token_balance
+            (user_id, transaction_type, amount, current_balance, reason, purchase_status)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, created_at
+            """,
+            (user_id, "credit", amount, new_balance, reason, purchase_status)
+        )
+
+        transaction_id, created_at = cur.fetchone()
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Tokens creditados com sucesso",
+            "balance": new_balance,
+            "transaction": {
+                "id": transaction_id,
+                "user_id": user_id,
+                "transaction_type": "credit",
+                "amount": amount,
+                "current_balance": new_balance,
+                "reason": reason,
+                "purchase_status": purchase_status,
+                "created_at": created_at.isoformat() if created_at else None
+            }
+        }), 201
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": f"Erro ao creditar tokens: {str(e)}"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route("/api/wallet/debit", methods=["POST"])
+def debit_wallet_tokens():
+    data = request.json or {}
+
+    user_id = data.get("user_id")
+    amount = data.get("amount")
+    reason = data.get("reason")
+    purchase_status = data.get("purchase_status", "completed")
+
+    if not user_id or amount is None or not reason:
+        return jsonify({
+            "success": False,
+            "message": "Campos obrigatórios: user_id, amount, reason"
+        }), 400
+
+    try:
+        user_id = int(user_id)
+        amount = int(amount)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "user_id e amount devem ser inteiros"}), 400
+
+    if amount <= 0:
+        return jsonify({"success": False, "message": "amount deve ser maior que zero"}), 400
+
+    if purchase_status not in {"pending", "completed", "failed", "canceled", "refunded"}:
+        return jsonify({"success": False, "message": "purchase_status inválido"}), 400
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+        user_exists = cur.fetchone()
+        if not user_exists:
+            return jsonify({"success": False, "message": "Usuário não encontrado"}), 404
+
+        cur.execute(
+            """
+            SELECT current_balance
+            FROM token_balance
+            WHERE user_id = %s
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """,
+            (user_id,)
+        )
+        last_balance_row = cur.fetchone()
+        previous_balance = int(last_balance_row[0]) if last_balance_row and last_balance_row[0] is not None else 0
+
+        if previous_balance < amount:
+            return jsonify({
+                "success": False,
+                "message": "Saldo insuficiente"
+            }), 409
+
+        new_balance = previous_balance - amount
+
+        cur.execute(
+            """
+            INSERT INTO token_balance
+            (user_id, transaction_type, amount, current_balance, reason, purchase_status)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, created_at
+            """,
+            (user_id, "debit", amount, new_balance, reason, purchase_status)
+        )
+
+        transaction_id, created_at = cur.fetchone()
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Tokens debitados com sucesso",
+            "balance": new_balance,
+            "transaction": {
+                "id": transaction_id,
+                "user_id": user_id,
+                "transaction_type": "debit",
+                "amount": amount,
+                "current_balance": new_balance,
+                "reason": reason,
+                "purchase_status": purchase_status,
+                "created_at": created_at.isoformat() if created_at else None
+            }
+        }), 201
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": f"Erro ao debitar tokens: {str(e)}"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
 @app.route("/api/purchase-intentions", methods=["POST"])
 def register_purchase_intention():
-    """
-    Register a fictional token purchase intention
-    Method: POST
-    Request Body: {
-        "user_id": 3,
-        "selected_plan": "Growth",
-        "reason": "Melhor custo-benefício",
-        "tokens_amount": 150,
-        "price": "R$ 69,90"
-    }
-    Saves in: purchase_intentions table
-    Updates user token balance
-    """
     data = request.json
 
     user_id = data.get("user_id")

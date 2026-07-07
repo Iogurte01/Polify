@@ -9,6 +9,7 @@ export function Register() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [lgpdAccepted, setLgpdAccepted] = useState(false);
@@ -35,7 +36,7 @@ export function Register() {
     setLoading(true);
 
     setTimeout(async () => {
-      const success = await register(name, email, password);
+      const success = await register(name, email, password, phone);
 
       setLoading(false);
 
@@ -113,6 +114,20 @@ export function Register() {
                 />
               </div>
               {errors.email && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{errors.email}</p>}
+            </div>
+
+            <div>
+              <label className="text-foreground mb-1.5 block" style={{ fontSize: "13px" }}>{t("auth.phone")}</label>
+              <div className="relative">
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => { setPhone(e.target.value); setErrors({}); }}
+                  placeholder={t("auth.phone")}
+                  className="w-full bg-input-background border rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] border-border"
+                  style={{ fontSize: "14px" }}
+                />
+              </div>
             </div>
 
             <div>

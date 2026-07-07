@@ -1,17 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
-  PlusCircle,
-  Trash2,
-  GripVertical,
-  ChevronDown,
-  Calculator,
-  Target,
-  Clock,
-  Zap,
-  Lock,
-  Send,
-  Info,
+  PlusCircle, Trash2, GripVertical, ChevronDown, Calculator, Target,
+  Clock, Send, ArrowUp, ArrowDown, X,
 } from "lucide-react";
 import { categories, brazilianStates, URL_backend } from "../data/mockData";
 import { useApp } from "../contexts/AppContext";
@@ -19,6 +10,7 @@ import { CityAutocomplete } from "../components/CityAutocomplete";
 import { toast } from "sonner";
 
 type QuestionType = "multiple" | "open" | "scale" | "checkbox";
+const MAX_CHARS = 200;
 
 interface Question {
   id: string;
@@ -36,7 +28,7 @@ const questionTypeLabels: Record<QuestionType, string> = {
 
 export function CreateSurvey() {
   const navigate = useNavigate();
-  const { tokenBalance, createForm, t } = useApp();
+  const { tokenBalance, createForm, spendTokens, t } = useApp();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -60,7 +52,18 @@ export function CreateSurvey() {
   };
 
   const removeQuestion = (id: string) => {
-    if (questions.length > 1) setQuestions(questions.filter((q) => q.id !== id));
+    if (questions.length > 1) {
+      if (window.confirm("Tem certeza que deseja excluir esta pergunta?")) {
+        setQuestions(questions.filter((q) => q.id !== id));
+      }
+    }
+  };
+
+  const moveQuestion = (index: number, direction: 'up' | 'down') => {
+    const newQuestions = [...questions];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newQuestions[index], newQuestions[targetIndex]] = [newQuestions[targetIndex], newQuestions[index]];
+    setQuestions(newQuestions);
   };
 
   const updateQuestion = (id: string, updates: Partial<Question>) => {
@@ -84,7 +87,6 @@ export function CreateSurvey() {
   const estimatedTime = `${estimatedMinutes} min`;
   const totalTokens = estimatedMinutes * 5;
   const respondentReward = estimatedMinutes;
-
   const estimatedReach = segState ? 450 : 1200;
 
   const validate = () => {
@@ -105,18 +107,8 @@ export function CreateSurvey() {
   const confirmPublish = async () => {
     setIsSubmitting(true);
     setErrors({});
-
     try {
       const questionsToPersist = questions.filter((question) => question.text.trim());
-
-      if (questionsToPersist.length === 0) {
-        const errorMessage = t("create.error.questions");
-        setErrors({ submit: errorMessage });
-        toast.error(errorMessage);
-        return;
-      }
-
-      // First create the form
       const formResult = await createForm({
         nome_formulario: title,
         descricao_formulario: description || undefined,
@@ -132,7 +124,6 @@ export function CreateSurvey() {
         return;
       }
 
-      // Then save questions to the form
       const formId = formResult.form.id;
       let questionsSaved = true;
       
@@ -146,41 +137,31 @@ export function CreateSurvey() {
         try {
           const response = await fetch(`${URL_backend}/api/questions`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              id_form: formId,
-              num_pergunta: i + 1,
-              pergunta: question.text,
-              alternativa,
-              tipagem: backendTipagem
-            })
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id_form: formId, num_pergunta: i + 1, pergunta: question.text, alternativa, tipagem: backendTipagem })
           });
-
           const result = await response.json();
-          if (!result.success) {
-            questionsSaved = false;
-            break;
-          }
-        } catch (error) {
-          questionsSaved = false;
-          break;
-        }
+          if (!result.success) { questionsSaved = false; break; }
+        } catch { questionsSaved = false; break; }
       }
 
       if (questionsSaved) {
+        const debitSuccess = await spendTokens(totalTokens, `Publicou: ${title}`);
+        if (!debitSuccess) {
+          setErrors({ submit: t("create.error.balance") });
+          toast.error(t("create.error.balance"));
+          return;
+        }
         toast.success(t("create.success"));
         setShowConfirm(false);
-        navigate("/"); // Redirect to Hub page
+        navigate("/");
       } else {
-        setErrors({ submit: "Formulário criado, mas erro ao salvar perguntas" });
-        toast.error("Formulário criado, mas erro ao salvar perguntas");
+        setErrors({ submit: "Erro ao salvar perguntas" });
+        toast.error("Erro ao salvar perguntas");
       }
-    } catch (error) {
-      const errorMessage = "Erro ao conectar com o servidor";
-      setErrors({ submit: errorMessage });
-      toast.error(errorMessage);
+    } catch {
+      setErrors({ submit: "Erro ao conectar com o servidor" });
+      toast.error("Erro ao conectar com o servidor");
     } finally {
       setIsSubmitting(false);
     }
@@ -201,7 +182,6 @@ export function CreateSurvey() {
               <div>
                 <label className={`mb-1.5 block ${errors.title ? "text-red-500" : "text-foreground"}`} style={{ fontSize: "13px" }}>{t("create.surveyTitle")}</label>
                 <input type="text" value={title} onChange={(e) => { setTitle(e.target.value); setErrors({}); }} placeholder="Ex: Percepção de marcas de cosméticos naturais" className={`w-full bg-input-background border rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] ${errors.title ? "border-red-400" : "border-border"}`} style={{ fontSize: "14px" }} />
-                {errors.title && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{errors.title}</p>}
               </div>
               <div>
                 <label className="text-foreground mb-1.5 block" style={{ fontSize: "13px" }}>{t("create.description")}</label>
@@ -216,51 +196,61 @@ export function CreateSurvey() {
                   </select>
                   <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                 </div>
-                {errors.category && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{errors.category}</p>}
               </div>
             </div>
           </div>
 
-          {errors.questions && <p className="text-red-500 px-1" style={{ fontSize: "12px" }}>{errors.questions}</p>}
           {questions.map((question, index) => (
             <div key={question.id} className="bg-card border border-border rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <GripVertical size={16} className="text-muted-foreground cursor-grab" />
+                  <GripVertical size={16} className="text-muted-foreground" />
                   <span className="text-muted-foreground" style={{ fontSize: "12px", fontWeight: 500 }}>{t("create.question")} {index + 1}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <select value={question.type} onChange={(e) => updateQuestion(question.id, { type: e.target.value as QuestionType })} className="bg-input-background border border-border rounded-lg px-3 py-1.5 text-foreground appearance-none cursor-pointer pr-8" style={{ fontSize: "12px" }}>
-                      {Object.entries(questionTypeLabels).map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
-                    </select>
-                    <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                  </div>
-                  <button onClick={() => removeQuestion(question.id)} className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors rounded-md hover:bg-red-50 dark:hover:bg-red-950/30"><Trash2 size={14} /></button>
+                <div className="flex items-center gap-1">
+                  <button disabled={index === 0} onClick={() => moveQuestion(index, 'up')} className="p-1.5 text-muted-foreground hover:text-[#6366f1] disabled:opacity-30"><ArrowUp size={14} /></button>
+                  <button disabled={index === questions.length - 1} onClick={() => moveQuestion(index, 'down')} className="p-1.5 text-muted-foreground hover:text-[#6366f1] disabled:opacity-30"><ArrowDown size={14} /></button>
+                  <select value={question.type} onChange={(e) => updateQuestion(question.id, { type: e.target.value as QuestionType })} className="bg-input-background border border-border rounded-lg px-3 py-1.5 text-foreground appearance-none cursor-pointer ml-2" style={{ fontSize: "12px" }}>
+                    {Object.entries(questionTypeLabels).map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
+                  </select>
+                  <button onClick={() => removeQuestion(question.id)} className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors rounded-md"><Trash2 size={14} /></button>
                 </div>
               </div>
-              <input type="text" value={question.text} onChange={(e) => updateQuestion(question.id, { text: e.target.value })} placeholder="Digite sua pergunta..." className="w-full bg-input-background border border-border rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground mb-4 focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1]" style={{ fontSize: "14px" }} />
+              
+              <div className="relative">
+                <textarea
+                  value={question.text}
+                  maxLength={MAX_CHARS}
+                  onChange={(e) => updateQuestion(question.id, { text: e.target.value })}
+                  onInput={(e) => {
+                    e.currentTarget.style.height = 'auto';
+                    e.currentTarget.style.height = (e.currentTarget.scrollHeight) + 'px';
+                  }}
+                  placeholder="Digite sua pergunta..."
+                  className="w-full bg-input-background border border-border rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground mb-1 focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] overflow-hidden resize-none"
+                  style={{ fontSize: "14px", minHeight: "44px" }}
+                />
+                <span className={`text-right block ${question.text.length >= MAX_CHARS * 0.9 ? 'text-red-500' : 'text-muted-foreground'}`} style={{ fontSize: "11px" }}>
+                  {question.text.length} / {MAX_CHARS}
+                </span>
+              </div>
+
               {(question.type === "multiple" || question.type === "checkbox") && (
-                <div className="space-y-2">
+                <div className="space-y-2 mt-2">
                   {question.options.map((opt, optIdx) => (
                     <div key={optIdx} className="flex items-center gap-2">
-                      <div className={`w-4 h-4 border-2 border-[#c7c9d4] dark:border-[#3d3b60] ${question.type === "multiple" ? "rounded-full" : "rounded"} flex-shrink-0`} />
-                      <input type="text" value={opt} onChange={(e) => updateOption(question.id, optIdx, e.target.value)} className="flex-1 bg-transparent border-b border-border px-2 py-1 text-foreground focus:outline-none focus:border-[#6366f1]" style={{ fontSize: "13px" }} />
-                      {question.options.length > 2 && (<button onClick={() => removeOption(question.id, optIdx)} className="text-muted-foreground hover:text-red-500 transition-colors"><Trash2 size={12} /></button>)}
+                      <div className={`w-4 h-4 border-2 border-[#c7c9d4] ${question.type === "multiple" ? "rounded-full" : "rounded"} flex-shrink-0`} />
+                      <input type="text" value={opt} onChange={(e) => updateOption(question.id, optIdx, e.target.value)} className="flex-1 bg-transparent border-b border-border px-2 py-1 text-foreground" style={{ fontSize: "13px" }} />
+                      <button onClick={() => removeOption(question.id, optIdx)} className="text-muted-foreground hover:text-red-500"><Trash2 size={12} /></button>
                     </div>
                   ))}
-                  <button onClick={() => addOption(question.id)} className="text-[#6366f1] hover:text-[#5558e6] flex items-center gap-1 mt-2 transition-colors" style={{ fontSize: "12px", fontWeight: 500 }}><PlusCircle size={12} />{t("create.addOption")}</button>
+                  <button onClick={() => addOption(question.id)} className="text-[#6366f1] text-xs font-medium flex items-center gap-1 mt-2"><PlusCircle size={12} /> {t("create.addOption")}</button>
                 </div>
               )}
-              {question.type === "scale" && (
-                <div className="flex items-center gap-2 mt-2">
-                  {[1, 2, 3, 4, 5].map((n) => (<div key={n} className="w-10 h-10 rounded-lg border-2 border-[#c7c9d4] dark:border-[#3d3b60] flex items-center justify-center text-muted-foreground" style={{ fontSize: "13px" }}>{n}</div>))}
-                </div>
-              )}
-              {question.type === "open" && (<div className="bg-input-background rounded-lg px-4 py-3 text-muted-foreground" style={{ fontSize: "13px" }}>Campo de texto livre para o respondente...</div>)}
             </div>
           ))}
           <button onClick={addQuestion} className="w-full border-2 border-dashed border-border rounded-xl py-4 flex items-center justify-center gap-2 text-muted-foreground hover:text-[#6366f1] hover:border-[#6366f1]/40 transition-colors" style={{ fontSize: "14px", fontWeight: 500 }}><PlusCircle size={18} />{t("create.addQuestion")}</button>
+          
           <div className="bg-card border border-border rounded-xl p-5 flex items-center justify-between">
             <div>
               <h4 className="text-foreground" style={{ fontSize: "14px" }}>{t("create.demographics")}</h4>
@@ -272,13 +262,14 @@ export function CreateSurvey() {
           </div>
         </div>
 
+        {/* Lado Direito */}
         <div className="w-[340px] space-y-4">
           <div className="bg-card border border-border rounded-xl p-5 sticky top-8">
             <h3 className="text-foreground mb-4 flex items-center gap-2" style={{ fontSize: "15px" }}><Target size={16} />{t("create.segmentation")}</h3>
             <div className="space-y-3">
               <SegSelect label={t("home.state")} value={segState} onChange={(v) => { setSegState(v); setSegCity(""); }} options={brazilianStates.map(s => `${s.uf} - ${s.name}`)} />
-              <div>
-                <label className="text-muted-foreground mb-1 block" style={{ fontSize: "12px", fontWeight: 500 }}>{t("home.city")}</label>
+              <div className="space-y-1">
+                <label className="text-muted-foreground block" style={{ fontSize: "12px", fontWeight: 500 }}>{t("home.city")}</label>
                 <CityAutocomplete stateUf={segState.split(" - ")[0]} value={segCity} onChange={setSegCity} placeholder="Buscar cidade..." />
               </div>
               <SegSelect label={t("home.ageRange")} value={segAge} onChange={setSegAge} options={["18–24", "25–30", "31–40", "41–50", "51–60", "60+"]} />
@@ -292,83 +283,40 @@ export function CreateSurvey() {
             <h3 className="text-foreground mb-4 flex items-center gap-2" style={{ fontSize: "15px" }}><Calculator size={16} />{t("create.estimatedCost")}</h3>
             <div className="space-y-2.5">
               <div className="flex justify-between" style={{ fontSize: "13px" }}>
-                <span className="text-muted-foreground">Custo de publicação</span>
+                <span className="text-muted-foreground">Custo</span>
                 <span className={tokenBalance >= totalTokens ? "text-[#6366f1]" : "text-red-500"} style={{ fontWeight: 600 }}>{totalTokens} tokens</span>
               </div>
               <div className="flex justify-between" style={{ fontSize: "13px" }}>
-                <span className="text-muted-foreground">Recompensa por resposta</span>
+                <span className="text-muted-foreground">Recompensa</span>
                 <span className="text-emerald-600" style={{ fontWeight: 500 }}>{respondentReward} tokens</span>
               </div>
-              {tokenBalance < totalTokens && (<p className="text-red-500" style={{ fontSize: "11px" }}>{t("create.error.balance")} ({t("home.balance")}: {tokenBalance})</p>)}
             </div>
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5">
             <div className="space-y-3">
-              <div className="flex items-center justify-between"><span className="text-muted-foreground flex items-center gap-1.5" style={{ fontSize: "13px" }}><Target size={13} /> {t("create.estimatedReach")}</span><span className="text-foreground" style={{ fontSize: "13px", fontWeight: 500 }}>~{estimatedReach} {t("general.people")}</span></div>
-              <div className="flex items-center justify-between"><span className="text-muted-foreground flex items-center gap-1.5" style={{ fontSize: "13px" }}><Clock size={13} /> {t("create.averageTime")}</span><span className="text-foreground" style={{ fontSize: "13px", fontWeight: 500 }}>{estimatedTime}</span></div>
+              <div className="flex items-center justify-between"><span className="text-muted-foreground flex items-center gap-1.5" style={{ fontSize: "13px" }}><Target size={13} /> Alcance</span><span className="text-foreground" style={{ fontSize: "13px", fontWeight: 500 }}>~{estimatedReach} pessoas</span></div>
+              <div className="flex items-center justify-between"><span className="text-muted-foreground flex items-center gap-1.5" style={{ fontSize: "13px" }}><Clock size={13} /> Tempo</span><span className="text-foreground" style={{ fontSize: "13px", fontWeight: 500 }}>{estimatedTime}</span></div>
             </div>
           </div>
-
-          <div className="bg-card border border-border rounded-xl p-5 opacity-60">
-            <div className="flex items-center gap-2 mb-2"><Zap size={16} className="text-[#f59e0b]" /><h3 className="text-foreground" style={{ fontSize: "15px" }}>{t("create.boost")}</h3><Lock size={12} className="text-muted-foreground ml-auto" /></div>
-            <p className="text-muted-foreground" style={{ fontSize: "12px" }}>{t("create.boostLocked")}</p>
-          </div>
-
-          {errors.balance && <p className="text-red-500 px-1" style={{ fontSize: "12px" }}>{errors.balance}</p>}
-          {errors.submit && <p className="text-red-500 px-1" style={{ fontSize: "12px" }}>{errors.submit}</p>}
-
-          <button 
-            onClick={handlePublish} 
-            disabled={isSubmitting}
-            className="w-full bg-[#6366f1] hover:bg-[#5558e6] text-white py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
-            style={{ fontSize: "14px", fontWeight: 600 }}
-          >
-            {isSubmitting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Criando formulário...
-              </>
-            ) : (
-              <>
-                <Send size={16} />
-                {t("create.publish")}
-              </>
-            )}
+          
+          <button onClick={handlePublish} disabled={isSubmitting} className="w-full bg-[#6366f1] hover:bg-[#5558e6] text-white py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+             {isSubmitting ? "Criando..." : <><Send size={16} />{t("create.publish")}</>}
           </button>
-          <div className="flex items-start gap-1.5 px-1"><Info size={12} className="text-muted-foreground mt-0.5 flex-shrink-0" /><p className="text-muted-foreground" style={{ fontSize: "11px" }}>{t("create.publishNote", { cost: String(totalTokens) })}</p></div>
         </div>
       </div>
 
       {showConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card border border-border rounded-xl p-6 w-[400px] max-w-[90vw]">
-            <h3 className="text-foreground mb-2" style={{ fontSize: "16px" }}>{t("create.confirmTitle")}</h3>
-            <p className="text-muted-foreground mb-6" style={{ fontSize: "13px" }}>{t("create.confirmMsg", { cost: String(totalTokens) })}</p>
+          <div className="bg-card border border-border rounded-xl p-6 w-[400px]">
+             <div className="flex justify-between items-center mb-4">
+                <h3 className="text-foreground">Confirmar</h3>
+                <button onClick={() => setShowConfirm(false)}><X size={18}/></button>
+             </div>
+            <p className="text-muted-foreground mb-6">Deseja publicar?</p>
             <div className="flex gap-3 justify-end">
-              <button 
-                onClick={() => setShowConfirm(false)} 
-                disabled={isSubmitting}
-                className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
-                style={{ fontSize: "13px", fontWeight: 500 }}
-              >
-                {t("general.cancel")}
-              </button>
-              <button 
-                onClick={confirmPublish} 
-                disabled={isSubmitting}
-                className="bg-[#6366f1] hover:bg-[#5558e6] text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" 
-                style={{ fontSize: "13px", fontWeight: 500 }}
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Criando...
-                  </>
-                ) : (
-                  t("general.confirm")
-                )}
-              </button>
+              <button onClick={() => setShowConfirm(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
+              <button onClick={confirmPublish} className="bg-[#6366f1] text-white px-4 py-2 rounded-lg">Confirmar</button>
             </div>
           </div>
         </div>

@@ -34,7 +34,8 @@ function ToggleSetting({ label, description, enabled, onChange }: ToggleSettingP
 
 export function Settings() {
   const navigate = useNavigate();
-  const { theme, setTheme, lang, setLang, deleteAccount, changePassword, downloadUserData, requestDataDeletion, lgpdDeletionStatus, t } = useApp();
+  // Adicionamos o 'user' aqui na desestruturação do useApp
+  const { user, theme, setTheme, lang, setLang, deleteAccount, changePassword, downloadUserData, requestDataDeletion, lgpdDeletionStatus, t } = useApp();
   const [emailNotif, setEmailNotif] = useState(true);
   const [pushNotif, setPushNotif] = useState(false);
   const [newSurveys, setNewSurveys] = useState(true);
@@ -131,7 +132,7 @@ export function Settings() {
           <div className="flex items-center justify-between py-3.5 border-b border-border">
             <div>
               <p className="text-foreground" style={{ fontSize: "14px", fontWeight: 500 }}>{t("settings.changePassword")}</p>
-              <p className="text-muted-foreground mt-0.5" style={{ fontSize: "12px" }}>{t("settings.lastChanged")}</p>
+              <p className="text-muted-foreground mt-0.5" style={{ fontSize: "12px" }}>{t("settings.updatePasswordInstruction")}</p>
             </div>
             <button onClick={() => setPasswordModal(true)} className="text-[#6366f1] hover:text-[#5558e6] transition-colors"><ChevronRight size={16} /></button>
           </div>
@@ -240,7 +241,9 @@ export function Settings() {
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-2">
                 <Mail size={14} className="text-muted-foreground" />
-                <span className="text-foreground" style={{ fontSize: "13px" }}>mariana@polify.com</span>
+                <span className="text-foreground" style={{ fontSize: "13px" }}>
+                  {user?.email || "Email não encontrado"}
+                </span>
               </div>
               <span className="text-emerald-600 flex items-center gap-1" style={{ fontSize: "11px", fontWeight: 500 }}>
                 <CheckCircle size={11} /> {t("settings.verified")}
@@ -249,7 +252,9 @@ export function Settings() {
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-2">
                 <Smartphone size={14} className="text-muted-foreground" />
-                <span className="text-foreground" style={{ fontSize: "13px" }}>+55 (12) 9****-4567</span>
+                <span className="text-foreground" style={{ fontSize: "13px" }}>
+                  {user?.telefone || user?.phone || "Telefone não cadastrado"}
+                </span>
               </div>
               <span className="text-emerald-600 flex items-center gap-1" style={{ fontSize: "11px", fontWeight: 500 }}>
                 <CheckCircle size={11} /> {t("settings.verified")}

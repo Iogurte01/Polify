@@ -19,6 +19,7 @@ DROP TABLE IF EXISTS header_formulario CASCADE;
 DROP TABLE IF EXISTS purchase_intentions CASCADE;
 DROP TABLE IF EXISTS user_progress CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS token_balance CASCADE;
 
 DROP FUNCTION IF EXISTS update_users_updated_at();
 DROP FUNCTION IF EXISTS update_updated_at_column();
@@ -34,6 +35,7 @@ CREATE TABLE users (
     idade INTEGER CHECK (idade >= 0 AND idade <= 150),
     cidade VARCHAR(100),
     pais VARCHAR(100),
+    telefone VARCHAR(20),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -100,7 +102,9 @@ CREATE TABLE perguntas_form (
     num_pergunta INTEGER NOT NULL,
     pergunta TEXT NOT NULL,
     alternativa JSONB DEFAULT '[]'::jsonb,
-    tipagem VARCHAR(50) NOT NULL CHECK (tipagem IN ('text', 'multiple_choice', 'checkbox', 'rating', 'date', 'number')),
+    tipagem VARCHAR(50) NOT NULL CHECK (
+        tipagem IN ('text', 'multiple_choice', 'checkbox', 'rating', 'date', 'number')
+    ),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(id_form, num_pergunta)
@@ -135,6 +139,37 @@ CREATE TABLE resp_form (
 );
 
 -- =====================================================
+-- 8. TOKEN_BALANCE (Histórico e Saldo de Tokens)
+-- =====================================================
+
+CREATE TABLE token_balance (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Tipo da transação: entrada (credit) ou saída (debit)
+    transaction_type VARCHAR(20) NOT NULL CHECK (
+        transaction_type IN ('credit', 'debit')
+    ),
+    
+    -- Quantidade de tokens na transação
+    amount INTEGER NOT NULL CHECK (amount > 0),
+    
+    -- Saldo atual do usuário LOGO APÓS essa transação (snapshot)
+    current_balance INTEGER NOT NULL CHECK (current_balance >= 0),
+    
+    -- Motivo / Descrição da transação
+    reason VARCHAR(255) NOT NULL,
+    
+    -- Status da compra/transação
+    purchase_status VARCHAR(50) NOT NULL DEFAULT 'completed'
+        CHECK (purchase_status IN ('pending', 'completed', 'failed', 'canceled', 'refunded')),
+    
+    -- Datas de criação e atualização
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
 -- INDEXES
 -- =====================================================
 
@@ -161,6 +196,10 @@ CREATE INDEX idx_header_form_cont_completed ON header_form_cont(completed);
 CREATE INDEX idx_resp_form_pergunta ON resp_form(id_perg);
 CREATE INDEX idx_resp_form_user ON resp_form(id_user);
 
+CREATE INDEX idx_token_balance_user ON token_balance(user_id);
+CREATE INDEX idx_token_balance_created ON token_balance(created_at);
+CREATE INDEX idx_token_balance_status ON token_balance(purchase_status);
+
 -- =====================================================
 -- FUNCTIONS
 -- =====================================================
@@ -171,7 +210,7 @@ BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION update_users_updated_at()
 RETURNS TRIGGER AS $$
@@ -179,29 +218,46 @@ BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 -- =====================================================
 -- TRIGGERS
 -- =====================================================
 
-CREATE TRIGGER users_updated_at_trigger BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_users_updated_at();
+CREATE TRIGGER users_updated_at_trigger
+BEFORE UPDATE ON users
+FOR EACH ROW
+EXECUTE FUNCTION update_users_updated_at();
 
-CREATE TRIGGER update_user_progress_updated_at BEFORE UPDATE ON user_progress
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_user_progress_updated_at
+BEFORE UPDATE ON user_progress
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_purchase_intentions_updated_at BEFORE UPDATE ON purchase_intentions
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_purchase_intentions_updated_at
+BEFORE UPDATE ON purchase_intentions
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_header_formulario_updated_at BEFORE UPDATE ON header_formulario
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_header_formulario_updated_at
+BEFORE UPDATE ON header_formulario
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_perguntas_form_updated_at BEFORE UPDATE ON perguntas_form
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_perguntas_form_updated_at
+BEFORE UPDATE ON perguntas_form
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_resp_form_updated_at BEFORE UPDATE ON resp_form
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_resp_form_updated_at
+BEFORE UPDATE ON resp_form
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_token_balance_updated_at
+BEFORE UPDATE ON token_balance
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
 -- VIEWS

@@ -18,7 +18,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.login": "Entrar",
     "auth.register": "Criar conta",
     "auth.forgotPassword": "Esqueci minha senha",
+    "auth.namePlaceholder": "Seu nome completo",
     "auth.email": "E-mail",
+    "auth.phone": "Telefone",
     "auth.password": "Senha",
     "auth.confirmPassword": "Confirmar senha",
     "auth.name": "Nome completo",
@@ -256,7 +258,8 @@ const translations: Record<Lang, Record<string, string>> = {
     "settings.showActivityDesc":
       "Exibir seu histórico de respostas no perfil",
     "settings.changePassword": "Alterar senha",
-    "settings.lastChanged": "Última alteração há 30 dias",
+    // I changed the key here and the value to a generic instruction.
+    "settings.updatePasswordInstruction": "Clique para redefinir", 
     "settings.2fa": "Autenticação 2FA",
     "settings.2faDesc":
       "Adicione uma camada extra de segurança",
@@ -370,7 +373,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.login": "Sign in",
     "auth.register": "Create account",
     "auth.forgotPassword": "Forgot password",
+    "auth.namePlaceholder": "Your full name",
     "auth.email": "Email",
+    "auth.phone": "Phone",
     "auth.password": "Password",
     "auth.confirmPassword": "Confirm password",
     "auth.name": "Full name",
@@ -595,7 +600,8 @@ const translations: Record<Lang, Record<string, string>> = {
     "settings.showActivityDesc":
       "Display your response history on your profile",
     "settings.changePassword": "Change password",
-    "settings.lastChanged": "Last changed 30 days ago",
+    // I changed the key here and the value to a generic instruction.
+    "settings.updatePasswordInstruction": "Click to reset password",
     "settings.2fa": "2FA Authentication",
     "settings.2faDesc": "Add an extra layer of security",
     "settings.active": "Active",
@@ -700,7 +706,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.login": "Iniciar sesión",
     "auth.register": "Crear cuenta",
     "auth.forgotPassword": "Olvidé mi contraseña",
+    "auth.namePlaceholder": "Tu nombre completo",
     "auth.email": "Correo electrónico",
+    "auth.phone": "Teléfono",
     "auth.password": "Contraseña",
     "auth.confirmPassword": "Confirmar contraseña",
     "auth.name": "Nombre completo",
@@ -929,7 +937,8 @@ const translations: Record<Lang, Record<string, string>> = {
     "settings.showActivityDesc":
       "Mostrar tu historial de respuestas en tu perfil",
     "settings.changePassword": "Cambiar contraseña",
-    "settings.lastChanged": "Último cambio hace 30 días",
+    // I changed the key here and the value to a generic instruction.
+    "settings.updatePasswordInstruction": "Haz clic para restablecer",
     "settings.2fa": "Autenticación 2FA",
     "settings.2faDesc": "Agrega una capa extra de seguridad",
     "settings.active": "Activo",

@@ -201,10 +201,14 @@ export function AnswerSurvey() {
       const result = await answerSurvey(formDetails.id.toString(), responsesArray);
 
       if (result.success) {
-        addTokens(formDetails.pontos_base || 10, `Respondeu: ${formDetails.nome_formulario}`);
-        toast.success(t("answer.tokensEarned", { tokens: String(formDetails.pontos_base || 10) }));
-        setShowConfirm(false);
-        setSubmitted(true);
+        const credited = await addTokens(formDetails.pontos_base || 10, `Respondeu: ${formDetails.nome_formulario}`);
+        if (credited) {
+          toast.success(t("answer.tokensEarned", { tokens: String(formDetails.pontos_base || 10) }));
+          setShowConfirm(false);
+          setSubmitted(true);
+        } else {
+          toast.error("Respostas salvas, mas não foi possível creditar os tokens");
+        }
       } else {
         toast.error(result.message || "Erro ao salvar respostas");
       }
