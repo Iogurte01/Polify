@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
 import { toast } from "sonner";
+import { LoadingActionButton } from "../components/ui/loading-action-button";
 
 export function Register() {
   const { register, login, t } = useApp();
@@ -220,14 +221,15 @@ export function Register() {
               {errors.lgpd && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{errors.lgpd}</p>}
             </div>
 
-            <button
+            <LoadingActionButton
               type="submit"
-              disabled={loading}
-              className="w-full bg-[#6366f1] hover:bg-[#5558e6] text-white py-3 rounded-xl transition-colors disabled:opacity-60"
+              loading={loading}
+              loadingLabel={t("auth.register")}
+              className="w-full h-[48px] bg-[#6366f1] hover:bg-[#5558e6]"
               style={{ fontSize: "14px", fontWeight: 600 }}
             >
-              {loading ? "..." : t("auth.register")}
-            </button>
+              {t("auth.register")}
+            </LoadingActionButton>
 
             {errors.form && <p className="text-red-500 text-center" style={{ fontSize: "12px" }}>{errors.form}</p>}
           </form>

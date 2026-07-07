@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
 import { toast } from "sonner";
+import { LoadingActionButton } from "../components/ui/loading-action-button";
 
 export function Login() {
   const { login, loginGoogle, t } = useApp();
@@ -177,14 +178,15 @@ export function Login() {
               </Link>
             </div>
 
-            <button
+            <LoadingActionButton
               type="submit"
-              disabled={loading}
-              className="w-full bg-[#6366f1] hover:bg-[#5558e6] text-white py-3 rounded-xl transition-colors disabled:opacity-60"
+              loading={loading}
+              loadingLabel={t("auth.login")}
+              className="w-full h-[48px] bg-[#6366f1] hover:bg-[#5558e6]"
               style={{ fontSize: "14px", fontWeight: 600 }}
             >
-              {loading ? "..." : t("auth.login")}
-            </button>
+              {t("auth.login")}
+            </LoadingActionButton>
           </form>
 
           <p className="text-center text-muted-foreground mt-6" style={{ fontSize: "13px" }}>
