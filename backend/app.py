@@ -354,7 +354,7 @@ def login():
         cur = conn.cursor()
 
         cur.execute(
-            "SELECT id, nome, email, password_hash FROM users WHERE LOWER(email) = LOWER(%s)",
+            "SELECT id, nome, email, telefone, password_hash FROM users WHERE LOWER(email) = LOWER(%s)",
             (email,)
         )
 
@@ -369,7 +369,7 @@ def login():
                 "message": "Usuário não encontrado"
             }), 401
         
-        user_id, name, user_email, password_hash, = user
+        user_id, name, user_email, phone, password_hash, = user
 
         if not check_password_hash(password_hash, password):
             return jsonify({
@@ -383,7 +383,8 @@ def login():
             "user": {
                 "id": user_id,
                 "name": name,
-                "email": user_email
+                "email": user_email,
+                "telefone": phone
 
             }
         }), 200

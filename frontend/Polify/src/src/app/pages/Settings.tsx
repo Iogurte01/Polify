@@ -253,7 +253,7 @@ export function Settings() {
               <div className="flex items-center gap-2">
                 <Smartphone size={14} className="text-muted-foreground" />
                 <span className="text-foreground" style={{ fontSize: "13px" }}>
-                  {user?.telefone || user?.phone || "Telefone não cadastrado"}
+                  {user?.telefone || user?.phone || ""}
                 </span>
               </div>
               <span className="text-emerald-600 flex items-center gap-1" style={{ fontSize: "11px", fontWeight: 500 }}>

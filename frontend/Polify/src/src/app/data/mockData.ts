@@ -399,7 +399,7 @@ export const currentUser: UserProfile = {
   completionRate: 94,
   totalResponses: 156,
   totalCreated: 12,
-  tokenBalance: 248,
+  tokenBalance: 0,
   badges: [
     { name: "Top Respondente", icon: "trophy", earned: true, tooltip: "Respondeu mais de 100 pesquisas com qualidade" },
     { name: "Verificado", icon: "check", earned: true, tooltip: "Identidade verificada na plataforma" },
