@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
-import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, X } from "lucide-react"; // Adicionado 'X' aqui
 import { useApp } from "../contexts/AppContext";
 import { toast } from "sonner";
 import { LoadingActionButton } from "../components/ui/loading-action-button";
@@ -17,6 +17,7 @@ export function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [lgpdModal, setLgpdModal] = useState(false);
 
   const sanitizeName = (value: string) => value.replace(/[^A-Za-zÀ-ÿ\s'-]/g, "");
 
@@ -206,20 +207,30 @@ export function Register() {
               {errors.confirmPassword && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{errors.confirmPassword}</p>}
             </div>
 
+            {/* AQUI COMEÇA O BLOCO SUBSTITUÍDO (LGPD) */}
             <div>
-              <label className="flex items-start gap-2 cursor-pointer">
+              <div className="flex items-start gap-2">
                 <input
                   type="checkbox"
                   checked={lgpdAccepted}
                   onChange={(e) => { setLgpdAccepted(e.target.checked); setErrors({}); }}
                   className="mt-1 accent-[#6366f1]"
                 />
-                <span className={`${errors.lgpd ? "text-red-500" : "text-muted-foreground"}`} style={{ fontSize: "12px", lineHeight: 1.5 }}>
-                  {t("auth.lgpdAccept")}
-                </span>
-              </label>
+
+                <div className="text-muted-foreground" style={{ fontSize: "12px", lineHeight: 1.5 }}>
+                  <button
+                    type="button"
+                    onClick={() => setLgpdModal(true)}
+                    className="text-left text-inherit hover:text-[#6366f1] transition-colors"
+                  >
+                    Li e aceito a Política de Privacidade e os Termos de Uso (LGPD)
+                  </button>
+                </div>
+              </div>
+
               {errors.lgpd && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{errors.lgpd}</p>}
             </div>
+            {/* AQUI TERMINA O BLOCO SUBSTITUÍDO (LGPD) */}
 
             <LoadingActionButton
               type="submit"
@@ -242,6 +253,62 @@ export function Register() {
           </p>
         </div>
       </div>
+
+      {/* MODAL DA LGPD ADICIONADO AQUI */}
+      {lgpdModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="bg-background rounded-xl p-6 w-full max-w-2xl shadow-xl border border-border animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4 pb-4 border-b border-border">
+              <h3 className="text-lg font-bold text-foreground">Política de Privacidade e Termos de Uso</h3>
+              <button 
+                onClick={() => setLgpdModal(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="text-sm text-muted-foreground mb-6 max-h-[60vh] overflow-y-auto pr-2 space-y-4">
+              <h4 className="font-semibold text-foreground">1. Coleta de Dados</h4>
+              <p>
+                Ao criar sua conta na Loxify/Polify, coletamos as informações que você nos fornece 
+                diretamente, como seu nome, e-mail e número de telefone.
+              </p>
+              
+              <h4 className="font-semibold text-foreground">2. Uso das Informações</h4>
+              <p>
+                Utilizamos seus dados exclusivamente para criar e gerenciar sua conta, 
+                fornecer o serviço solicitado e nos comunicarmos com você sobre atualizações da plataforma.
+              </p>
+
+              <h4 className="font-semibold text-foreground">3. Seus Direitos (LGPD)</h4>
+              <p>
+                De acordo com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), você tem o direito 
+                de solicitar o acesso, correção ou exclusão dos seus dados pessoais a qualquer momento.
+              </p>
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <button 
+                onClick={() => setLgpdModal(false)}
+                className="px-4 py-2 bg-muted text-foreground hover:bg-muted/80 rounded-lg font-medium transition-colors text-sm"
+              >
+                Fechar
+              </button>
+              <button 
+                onClick={() => {
+                  setLgpdAccepted(true);
+                  setErrors({});
+                  setLgpdModal(false);
+                }}
+                className="px-4 py-2 bg-[#6366f1] text-white hover:bg-[#5558e6] rounded-lg font-medium transition-colors text-sm"
+              >
+                Aceitar e Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
