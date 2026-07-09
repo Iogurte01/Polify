@@ -29,7 +29,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.noAccount": "Não tem conta?",
     "auth.hasAccount": "Já tem conta?",
     "auth.lgpdAccept":
-      "Li e aceito a Política de Privacidade e os Termos de Uso (LGPD)",
+      "Li e aceito a Política de Privacidade e os Termos de Uso (LGPD) [↗]",
     "auth.resetPassword": "Redefinir senha",
     "auth.resetSent": "E-mail de redefinição enviado!",
     "auth.resetDesc":
@@ -390,7 +390,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.noAccount": "Don't have an account?",
     "auth.hasAccount": "Already have an account?",
     "auth.lgpdAccept":
-      "I have read and accept the Privacy Policy and Terms of Use (LGPD)",
+      "I have read and accept the Privacy Policy and Terms of Use (LGPD) [↗]",
     "auth.resetPassword": "Reset password",
     "auth.resetSent": "Reset email sent!",
     "auth.resetDesc":
@@ -729,7 +729,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.noAccount": "¿No tienes cuenta?",
     "auth.hasAccount": "¿Ya tienes cuenta?",
     "auth.lgpdAccept":
-      "He leído y acepto la Política de Privacidad y Términos de Uso (LGPD)",
+      "He leído y acepto la Política de Privacidad y Términos de Uso (LGPD) [↗]",
     "auth.resetPassword": "Restablecer contraseña",
     "auth.resetSent": "¡Correo de restablecimiento enviado!",
     "auth.resetDesc":

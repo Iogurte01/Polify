@@ -288,7 +288,7 @@ export function Register() {
                     onClick={() => setLgpdModal(true)}
                     className="text-left text-inherit hover:text-[#6366f1] transition-colors"
                   >
-                    Li e aceito a Política de Privacidade e os Termos de Uso (LGPD)
+                    Li e aceito a Política de Privacidade e os Termos de Uso (LGPD) [↗]
                   </button>
                 </div>
               </div>
