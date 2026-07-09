@@ -1,9 +1,20 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
-import { Eye, EyeOff, Mail, Lock, User, X } from "lucide-react"; // Adicionado 'X' aqui
+import { Eye, EyeOff, Mail, Lock, User, X } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
 import { toast } from "sonner";
 import { LoadingActionButton } from "../components/ui/loading-action-button";
+
+// Função auxiliar para calcular a força da senha (0 a 4)
+const getPasswordStrength = (pass: string) => {
+  let score = 0;
+  if (!pass) return 0;
+  if (pass.length >= 6) score += 1; // Requisito mínimo
+  if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score += 1; // Letras maiúsculas e minúsculas
+  if (/\d/.test(pass)) score += 1; // Números
+  if (/[^A-Za-z0-9]/.test(pass)) score += 1; // Caracteres especiais
+  return score;
+};
 
 export function Register() {
   const { register, login, t } = useApp();
@@ -31,7 +42,6 @@ export function Register() {
   };
 
   const isValidName = (value: string) => /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'-]*$/.test(value);
-
   const isValidPhone = (value: string) => /^\(\d{2}\) \d{5}-\d{4}$/.test(value);
 
   const validate = () => {
@@ -78,6 +88,39 @@ export function Register() {
         }
       }
     }, 600);
+  };
+
+  // Variáveis derivadas para o medidor de força da senha
+  const strengthScore = getPasswordStrength(password);
+  
+  const getStrengthColor = (score: number) => {
+    switch (score) {
+      case 1: return "bg-red-500";
+      case 2: return "bg-orange-500";
+      case 3: return "bg-yellow-400";
+      case 4: return "bg-green-500";
+      default: return "bg-transparent";
+    }
+  };
+
+  const getStrengthWidth = (score: number) => {
+    switch (score) {
+      case 1: return "w-1/4";
+      case 2: return "w-2/4";
+      case 3: return "w-3/4";
+      case 4: return "w-full";
+      default: return "w-0";
+    }
+  };
+
+  const getStrengthLabel = (score: number) => {
+    switch (score) {
+      case 1: return "Fraca";
+      case 2: return "Razoável";
+      case 3: return "Boa";
+      case 4: return "Forte";
+      default: return "";
+    }
   };
 
   return (
@@ -187,6 +230,29 @@ export function Register() {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+              
+              {/* BLOCO DA BARRINHA DE FORÇA DA SENHA */}
+              {password.length > 0 && (
+                <div className="mt-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[11px] text-muted-foreground">Força da senha:</span>
+                    <span className={`text-[11px] font-medium ${
+                      strengthScore === 1 ? "text-red-500" :
+                      strengthScore === 2 ? "text-orange-500" :
+                      strengthScore === 3 ? "text-yellow-500" :
+                      "text-green-500"
+                    }`}>
+                      {getStrengthLabel(strengthScore)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-border rounded-full h-1.5 overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-300 ease-in-out ${getStrengthColor(strengthScore)} ${getStrengthWidth(strengthScore)}`}
+                    ></div>
+                  </div>
+                </div>
+              )}
+
               {errors.password && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{errors.password}</p>}
             </div>
 
@@ -207,7 +273,6 @@ export function Register() {
               {errors.confirmPassword && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{errors.confirmPassword}</p>}
             </div>
 
-            {/* AQUI COMEÇA O BLOCO SUBSTITUÍDO (LGPD) */}
             <div>
               <div className="flex items-start gap-2">
                 <input
@@ -230,7 +295,6 @@ export function Register() {
 
               {errors.lgpd && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{errors.lgpd}</p>}
             </div>
-            {/* AQUI TERMINA O BLOCO SUBSTITUÍDO (LGPD) */}
 
             <LoadingActionButton
               type="submit"
@@ -254,7 +318,6 @@ export function Register() {
         </div>
       </div>
 
-      {/* MODAL DA LGPD ADICIONADO AQUI */}
       {lgpdModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="bg-background rounded-xl p-6 w-full max-w-2xl shadow-xl border border-border animate-in fade-in zoom-in-95 duration-200">

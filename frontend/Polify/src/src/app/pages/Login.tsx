@@ -34,7 +34,7 @@ export function Login() {
       setLoading(false);
       if (success) {
         toast.success(t("auth.welcome") + "!");
-        navigate("/hub");
+        navigate("/");
       } else {
         setErrors({ form: t("auth.error.invalid") });
       }
