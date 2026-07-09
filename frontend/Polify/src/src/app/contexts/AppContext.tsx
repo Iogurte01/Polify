@@ -324,6 +324,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Fetch wallet data from backend
+  const fetchWalletData = useCallback(async (userId: number) => {
+    try {
+      const response = await fetch(`${URL_backend}/api/wallet/${userId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setTokenBalance(data.balance);
+        
+        // Transform backend history to match frontend TokenTransaction type
+        const transformedHistory: TokenTransaction[] = data.history.map((tx: any) => ({
+          id: String(tx.id),
+          type: tx.type,
+          amount: tx.amount,
+          description: tx.description,
+          date: tx.date ? tx.date.split("T")[0] : new Date().toISOString().split("T")[0]
+        }));
+        
+        setTokenHistory(transformedHistory);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Erro ao buscar dados da carteira:", error);
+      return false;
+    }
+  }, []);
+
   // Fetch forms from backend
   const fetchForms = useCallback(async () => {
     try {
@@ -526,6 +561,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAuth(authData);
         localStorage.setItem("polify_auth", JSON.stringify(authData));
 
+        // Fetch wallet data after successful login
+        if (data.user?.id) {
+          await fetchWalletData(data.user.id);
+        }
+
         return true;
       }
 
@@ -559,6 +599,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAuth(authData);
       localStorage.setItem("polify_auth", JSON.stringify(authData));
 
+      // Fetch wallet data after successful login
+      if (data.user?.id) {
+        await fetchWalletData(data.user.id);
+      }
+
       return true;
     }
 
@@ -567,7 +612,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     console.error("Erro no login com Google:", error);
     return false;
   }
-}, []);
+}, [fetchWalletData]);
 
   const register = async (name: string, email: string, password: string, phone: string): Promise<{ success: boolean; message?: string; status?: number }> => {
     try {
@@ -754,6 +799,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     fetchUserProgress(userId);
   }, [auth.user?.id, fetchUserProgress]);
+
+  // Fetch wallet data on mount when user is authenticated (for page reload)
+  useEffect(() => {
+    const userId = auth.user?.id;
+
+    if (userId && auth.isAuthenticated) {
+      fetchWalletData(userId);
+    }
+  }, [auth.isAuthenticated, auth.user?.id, fetchWalletData]);
 
   // Publish survey
   const publishSurvey = useCallback((survey: Omit<MySurvey, "id" | "responses" | "createdAt" | "source" | "avgQuality" | "validResponses">, cost: number, feedSurvey: Omit<Survey, "id">): boolean => {

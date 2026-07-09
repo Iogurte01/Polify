@@ -1453,6 +1453,78 @@ def debit_wallet_tokens():
             conn.close()
 
 
+@app.route("/api/wallet/<int:user_id>", methods=["GET"])
+def get_wallet_data(user_id):
+    """
+    Get wallet data for a specific user: current balance and transaction history
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Verify user exists
+        cur.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+        user_exists = cur.fetchone()
+        if not user_exists:
+            return jsonify({"success": False, "message": "Usuário não encontrado"}), 404
+
+        # Get current balance (most recent transaction)
+        cur.execute(
+            """
+            SELECT current_balance
+            FROM token_balance
+            WHERE user_id = %s
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """,
+            (user_id,)
+        )
+        balance_row = cur.fetchone()
+        current_balance = int(balance_row[0]) if balance_row and balance_row[0] is not None else 0
+
+        # Get transaction history (last 50 transactions)
+        cur.execute(
+            """
+            SELECT id, transaction_type, amount, current_balance, reason, purchase_status, created_at
+            FROM token_balance
+            WHERE user_id = %s
+            ORDER BY created_at DESC, id DESC
+            LIMIT 50
+            """,
+            (user_id,)
+        )
+        transactions = []
+        for row in cur.fetchall():
+            transactions.append({
+                "id": row[0],
+                "type": "earned" if row[1] == "credit" else "spent",
+                "amount": row[2],
+                "current_balance": row[3],
+                "description": row[4],
+                "purchase_status": row[5],
+                "date": row[6].isoformat() if row[6] else None
+            })
+
+        return jsonify({
+            "success": True,
+            "balance": current_balance,
+            "history": transactions
+        }), 200
+
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": f"Erro ao buscar dados da carteira: {str(e)}"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
 @app.route("/api/purchase-intentions", methods=["POST"])
 def register_purchase_intention():
     data = request.json
