@@ -19,7 +19,7 @@ export function Hub() {
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("Todas");
+  const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -48,10 +48,25 @@ export function Hub() {
   const hasFilters = Object.values(filters).some(Boolean);
   const allCategories = ["Todas", ...categories];
 
+  const toggleCategory = (category: string) => {
+    if (category === "Todas") {
+      setActiveCategories([]);
+      return;
+    }
+
+    setActiveCategories((prev) => {
+      if (prev.includes(category)) {
+        return prev.filter((c) => c !== category);
+      } else {
+        return [...prev, category];
+      }
+    });
+  };
+
   const filteredSurveys = surveys.filter((s) => {
     if (s.status !== "Ativa") return false;
     if (searchQuery && !s.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    if (activeCategory !== "Todas" && s.category !== activeCategory) return false;
+    if (activeCategories.length > 0 && !activeCategories.includes(s.category)) return false;
     if (filters.category && s.category !== filters.category) return false;
     if (filters.state && s.state && s.state !== filters.state) return false;
     if (filters.city && s.city && !s.city.toLowerCase().includes(filters.city.toLowerCase())) return false;
@@ -144,20 +159,23 @@ export function Hub() {
 
       {/* Category Tabs */}
       <div className="flex flex-wrap gap-2 mb-5">
-        {allCategories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={`px-3.5 py-1.5 rounded-lg transition-colors ${
-              activeCategory === cat
-                ? "bg-[#6366f1] text-white"
-                : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-[#6366f1]/30"
-            }`}
-            style={{ fontSize: "12px", fontWeight: 500 }}
-          >
-            {cat}
-          </button>
-        ))}
+        {allCategories.map((cat) => {
+          const isActive = cat === "Todas" ? activeCategories.length === 0 : activeCategories.includes(cat);
+          return (
+            <button
+              key={cat}
+              onClick={() => toggleCategory(cat)}
+              className={`px-3.5 py-1.5 rounded-lg transition-colors ${
+                isActive
+                  ? "bg-[#6366f1] text-white"
+                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-[#6366f1]/30"
+              }`}
+              style={{ fontSize: "12px", fontWeight: 500 }}
+            >
+              {cat}
+            </button>
+          );
+        })}
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`ml-auto flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border transition-colors ${
@@ -208,7 +226,7 @@ export function Hub() {
       )}
 
       {/* Trending Section */}
-      {!searchQuery && activeCategory === "Todas" && trendingSurveys.length > 0 && (
+      {!searchQuery && activeCategories.length === 0 && trendingSurveys.length > 0 && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <Flame size={16} className="text-[#f97316]" />
