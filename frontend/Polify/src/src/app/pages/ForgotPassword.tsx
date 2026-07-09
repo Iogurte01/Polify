@@ -2,20 +2,49 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { Mail, ArrowLeft, CheckCircle } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
+import { URL_backend } from "../data/mockData";
 
 export function ForgotPassword() {
   const { t } = useApp();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
       setError(t("auth.error.email"));
       return;
     }
-    setSent(true);
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${URL_backend}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: email.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setSent(true);
+      } else {
+        setError(data.message || "Erro ao processar solicitação");
+      }
+    } catch (error) {
+      console.error("Erro ao solicitar recuperação de senha:", error);
+      setError("Erro ao conectar com o servidor");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -70,10 +99,11 @@ export function ForgotPassword() {
               </div>
               <button
                 type="submit"
-                className="w-full bg-[#6366f1] hover:bg-[#5558e6] text-white py-3 rounded-xl transition-colors"
+                disabled={loading}
+                className="w-full bg-[#6366f1] hover:bg-[#5558e6] text-white py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ fontSize: "14px", fontWeight: 600 }}
               >
-                {t("auth.resetPassword")}
+                {loading ? "Enviando..." : t("auth.resetPassword")}
               </button>
             </form>
             <div className="mt-4 text-center">

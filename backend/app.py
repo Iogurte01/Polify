@@ -396,6 +396,57 @@ def login():
             conn.close()
 
 
+@app.route("/api/auth/forgot-password", methods=["POST"])
+def forgot_password():
+    """
+    Handle forgot password request
+    Checks if email exists in database and returns appropriate response
+    """
+    data = request.json
+    email = normalize_email(data.get("email") or "")
+
+    if not email:
+        return jsonify({"success": False, "message": "Email é obrigatório"}), 400
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Check if email exists in database
+        cur.execute(
+            "SELECT id FROM users WHERE LOWER(email) = LOWER(%s)",
+            (email,)
+        )
+
+        user = cur.fetchone()
+
+        if not user:
+            return jsonify({
+                "success": False,
+                "message": "Não encontramos uma conta associada a este E-mail."
+            }), 404
+
+        # Email exists - in a real implementation, you would send a reset email here
+        # For now, we just return success
+        return jsonify({
+            "success": True,
+            "message": "Você receberá instruções de recuperação."
+        }), 200
+
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": "Erro ao processar solicitação"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
 @app.route("/api/users/<int:user_id>/progress", methods=["GET"])
 def get_user_progress(user_id):
     conn = None
