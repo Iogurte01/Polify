@@ -17,9 +17,9 @@ import {
 } from "../components/ui/dropdown-menu";
 
 const statusColors: Record<string, { bg: string; text: string }> = {
-  Ativa: { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-400" },
-  Rascunho: { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-400" },
-  Encerrada: { bg: "bg-gray-100 dark:bg-gray-800", text: "text-gray-600 dark:text-gray-400" },
+  Ativa: { bg: "bg-emerald-50", text: "text-emerald-700" },
+  Rascunho: { bg: "bg-amber-50", text: "text-amber-700" },
+  Encerrada: { bg: "bg-gray-100", text: "text-gray-600" },
 };
 
 const COLORS = ["#6366f1", "#8b5cf6", "#a78bfa", "#4f46e5", "#c4b5fd"];

@@ -343,7 +343,7 @@ function SurveyCard({ survey, answered, t, navigate }: { survey: Survey; answere
           {survey.category}
         </span>
         {answered && (
-          <span className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1" style={{ fontSize: "10px", fontWeight: 600 }}>
+          <span className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 px-2 py-0.5 rounded-md flex items-center gap-1" style={{ fontSize: "10px", fontWeight: 600 }}>
             <Check size={10} /> Respondida
           </span>
         )}

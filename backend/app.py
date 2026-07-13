@@ -7,6 +7,8 @@ import os
 import json
 import re
 from dotenv import load_dotenv
+import random
+from email_service import send_email
 
 app = Flask(__name__)
 CORS(app)

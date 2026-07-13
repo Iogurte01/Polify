@@ -82,7 +82,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "explore.title": "Explorar Pesquisas",
     "explore.subtitle":
       "Encontre pesquisas por tema, categoria ou palavra-chave",
-    "explore.search": "Buscar pesquisas...",
+    "explore.search": "Buscar por título...",
     "explore.all": "Todas",
     "explore.trending": "Em Alta",
     "explore.highlight": "Destaque",
