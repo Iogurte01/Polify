@@ -868,6 +868,16 @@ def get_form_details(form_id):
          min_respondentes, tempo_max_dias, pontos_base, id_criador,
          created_at, is_active) = form
 
+        # Count total responses for this form
+        cur.execute("""
+            SELECT COUNT(DISTINCT rf.id_user) as response_count
+            FROM resp_form rf
+            JOIN perguntas_form pf ON rf.id_perg = pf.id_perg
+            WHERE pf.id_form = %s
+        """, (form_id,))
+        
+        total_responses = cur.fetchone()[0] or 0
+
         # Get questions for this form
         cur.execute(
             """
@@ -902,6 +912,8 @@ def get_form_details(form_id):
             "id_criador": id_criador,
             "created_at": created_at.isoformat() if created_at else None,
             "is_active": is_active,
+            "total_responses": total_responses,
+            "total_questions": len(questions_list),
             "questions": questions_list
         }
 

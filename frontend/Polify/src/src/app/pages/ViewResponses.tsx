@@ -206,7 +206,7 @@ export function ViewResponses() {
               </div>
               <div>
                 <p className="text-muted-foreground text-sm">Total de Respostas</p>
-                <p className="text-foreground font-semibold">{responses.length}</p>
+                <p className="text-foreground font-semibold">{surveyDetails.total_responses || 0}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
