@@ -6,10 +6,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import json
 import re
-from dotenv import load_dotenv
 import random
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
 from email_service import send_email
-
 app = Flask(__name__)
 CORS(app)
 load_dotenv()
@@ -431,12 +431,42 @@ def forgot_password():
                 "message": "Não encontramos uma conta associada a este E-mail."
             }), 404
 
-        # Email exists - in a real implementation, you would send a reset email here
-        # For now, we just return success
-        return jsonify({
-            "success": True,
-            "message": "Você receberá instruções de recuperação."
-        }), 200
+
+         # Email exists - generate verification code and send email
+        verification_code = str(random.randint(100000, 999999))
+        expires_at = datetime.now() + timedelta(minutes=15)
+        
+        # Store token in database
+        cur.execute(
+            """
+            INSERT INTO password_reset_tokens (user_id, email, token, expires_at)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (user[0], email, verification_code, expires_at)
+        )
+        
+        html_body = f"""
+        <h2>Código de Verificação</h2>
+        <p>Seu código de verificação é: <strong>{verification_code}</strong></p>
+        <p>Use este código para redefinir sua senha.</p>
+        <p>Este código expira em 15 minutos.</p>
+        <p>Se você não solicitou esta recuperação, ignore este email.</p>
+        """
+        
+        email_sent = send_email(email, "Redefinição de Senha - Polify", html_body)
+        
+        if email_sent:
+            conn.commit()
+            return jsonify({
+                "success": True,
+                "message": "Código de verificação enviado para seu email."
+            }), 200
+        else:
+            conn.rollback()
+            return jsonify({
+                "success": False,
+                "message": "Erro ao enviar email de verificação."
+            }), 500
 
     except Exception as e:
         print(f"ERROR: {str(e)}")
@@ -448,6 +478,175 @@ def forgot_password():
         if conn:
             conn.close()
 
+@app.route("/api/auth/verify-reset-code", methods=["POST"])
+def verify_reset_code():
+    """
+    Verify password reset code
+    Method: POST
+    Request Body: {
+        "email": "user@example.com",
+        "code": "123456"
+    }
+    """
+    data = request.json
+    email = normalize_email(data.get("email") or "")
+    code = data.get("code", "").strip()
+
+    if not email or not code:
+        return jsonify({"success": False, "message": "Email e código são obrigatórios"}), 400
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Check if token exists and is valid
+        cur.execute(
+            """
+            SELECT id, user_id, expires_at, used
+            FROM password_reset_tokens
+            WHERE email = %s AND token = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (email, code)
+        )
+
+        token = cur.fetchone()
+
+        if not token:
+            return jsonify({
+                "success": False,
+                "message": "Código inválido."
+            }), 400
+
+        token_id, user_id, expires_at, used = token
+
+        if used:
+            return jsonify({
+                "success": False,
+                "message": "Código já utilizado."
+            }), 400
+
+        if datetime.now() > expires_at:
+            return jsonify({
+                "success": False,
+                "message": "Código expirado."
+            }), 400
+
+        return jsonify({
+            "success": True,
+            "message": "Código válido.",
+            "user_id": user_id
+        }), 200
+
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": "Erro ao verificar código"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route("/api/auth/reset-password", methods=["POST"])
+def reset_password():
+    """
+    Reset password with verification code
+    Method: POST
+    Request Body: {
+        "email": "user@example.com",
+        "code": "123456",
+        "new_password": "newpassword123"
+    }
+    """
+    data = request.json
+    email = normalize_email(data.get("email") or "")
+    code = data.get("code", "").strip()
+    new_password = data.get("new_password", "")
+
+    if not email or not code or not new_password:
+        return jsonify({"success": False, "message": "Email, código e nova senha são obrigatórios"}), 400
+
+    if len(new_password) < 6:
+        return jsonify({"success": False, "message": "Senha deve ter no mínimo 6 caracteres"}), 400
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Check if token exists and is valid
+        cur.execute(
+            """
+            SELECT id, user_id, expires_at, used
+            FROM password_reset_tokens
+            WHERE email = %s AND token = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (email, code)
+        )
+
+        token = cur.fetchone()
+
+        if not token:
+            return jsonify({
+                "success": False,
+                "message": "Código inválido."
+            }), 400
+
+        token_id, user_id, expires_at, used = token
+
+        if used:
+            return jsonify({
+                "success": False,
+                "message": "Código já utilizado."
+            }), 400
+
+        if datetime.now() > expires_at:
+            return jsonify({
+                "success": False,
+                "message": "Código expirado."
+            }), 400
+
+        # Update password
+        password_hash = generate_password_hash(new_password)
+        cur.execute(
+            "UPDATE users SET password_hash = %s WHERE id = %s",
+            (password_hash, user_id)
+        )
+
+        # Mark token as used
+        cur.execute(
+            "UPDATE password_reset_tokens SET used = TRUE WHERE id = %s",
+            (token_id,)
+        )
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Senha redefinida com sucesso."
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": "Erro ao redefinir senha"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 @app.route("/api/users/<int:user_id>/progress", methods=["GET"])
 def get_user_progress(user_id):

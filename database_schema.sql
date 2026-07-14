@@ -20,6 +20,7 @@ DROP TABLE IF EXISTS purchase_intentions CASCADE;
 DROP TABLE IF EXISTS user_progress CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS token_balance CASCADE;
+DROP TABLE IF EXISTS password_reset_tokens CASCADE;  -- [NOVO] Tabela de tokens de redefinição de senha
 
 DROP FUNCTION IF EXISTS update_users_updated_at();
 DROP FUNCTION IF EXISTS update_updated_at_column();
@@ -170,6 +171,22 @@ CREATE TABLE token_balance (
 );
 
 -- =====================================================
+-- 9. PASSWORD_RESET_TOKENS [NOVO] - Tokens de Redefinição de Senha
+-- =====================================================
+
+CREATE TABLE password_reset_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    email VARCHAR(255) NOT NULL,
+    token VARCHAR(6) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, token)
+);
+
+-- =====================================================
 -- INDEXES
 -- =====================================================
 
@@ -199,6 +216,11 @@ CREATE INDEX idx_resp_form_user ON resp_form(id_user);
 CREATE INDEX idx_token_balance_user ON token_balance(user_id);
 CREATE INDEX idx_token_balance_created ON token_balance(created_at);
 CREATE INDEX idx_token_balance_status ON token_balance(purchase_status);
+
+-- [NOVO] Índices para password_reset_tokens
+CREATE INDEX idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
+CREATE INDEX idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
 
 -- =====================================================
 -- FUNCTIONS
@@ -256,6 +278,12 @@ EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_token_balance_updated_at
 BEFORE UPDATE ON token_balance
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- [NOVO] Trigger para password_reset_tokens
+CREATE TRIGGER update_password_reset_tokens_updated_at
+BEFORE UPDATE ON password_reset_tokens
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 

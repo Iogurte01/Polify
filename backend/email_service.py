@@ -11,7 +11,7 @@ def send_email(to_email, subject, html_body):
     try:
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From'] = os.getenv('SMTP_EMAIL')
+        msg['From'] = os.getenv('SMTP_USER')
         msg['To'] = to_email
         
         html_part = MIMEText(html_body, 'html')
@@ -23,7 +23,7 @@ def send_email(to_email, subject, html_body):
         ) as server:
             server.login(
                 os.getenv('SMTP_USER'),
-                os.getenv('SMTP_PASSWORD')
+                os.getenv('SMTP_PASS')
             )
             server.send_message(msg)
             
