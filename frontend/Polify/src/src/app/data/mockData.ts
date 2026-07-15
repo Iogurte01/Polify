@@ -101,10 +101,10 @@ export interface GamificationLevel {
 
 export const gamificationLevels: GamificationLevel[] = [
   { id: "iniciante", name: "Iniciante", minXp: 0, tokenMultiplier: 1.0, color: "#6b7280", icon: "compass" },
-  { id: "explorador", name: "Explorador", minXp: 100, tokenMultiplier: 1.1, color: "#3b82f6", icon: "handshake" },
-  { id: "colaborador", name: "Colaborador", minXp: 200, tokenMultiplier: 1.2, color: "#8b5cf6", icon: "award" },
-  { id: "especialista", name: "Especialista", minXp: 300, tokenMultiplier: 1.3, color: "#6366f1", icon: "shield-check" },
-  { id: "analista_verificado", name: "Analista Verificado", minXp: 500, tokenMultiplier: 1.5, color: "#f59e0b", icon: "crown" },
+  { id: "explorer", name: "Explorador", minXp: 100, tokenMultiplier: 1.1, color: "#3b82f6", icon: "handshake" },
+  { id: "collaborator", name: "Colaborador", minXp: 200, tokenMultiplier: 1.2, color: "#8b5cf6", icon: "award" },
+  { id: "specialist", name: "Especialista", minXp: 300, tokenMultiplier: 1.3, color: "#6366f1", icon: "shield-check" },
+  { id: "verified_analyst", name: "Analista Verificado", minXp: 500, tokenMultiplier: 1.5, color: "#f59e0b", icon: "crown" },
 ];
 
 export function getUserLevel(xpTotal: number): GamificationLevel {
