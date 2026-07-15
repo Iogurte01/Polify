@@ -12,8 +12,8 @@ export function Sidebar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const navItems = [
-    { to: "/", icon: LayoutDashboard, label: "HUB" },
     { to: "/criar-pesquisa", icon: PlusCircle, label: t("nav.create"), highlight: true },
+    { to: "/", icon: LayoutDashboard, label: "HUB" },
     { to: "/minhas-pesquisas", icon: FolderOpen, label: t("nav.mySurveys") },
     { to: "/carteira", icon: Wallet, label: "Carteira" },
     { to: "/marketplace", icon: Store, label: t("nav.marketplace") },
@@ -21,20 +21,25 @@ export function Sidebar() {
     { to: "/configuracoes", icon: Settings, label: t("nav.settings") },
   ];
 
-  const userInitials = auth.user?.name
-    ? auth.user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
-    : "U";
+  const userName =
+    auth.user && "name" in auth.user
+      ? auth.user.name
+      : auth.user?.nome;
 
+  const userInitials = userName
+    ? userName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+    : "U";
+    
   const handleLogout = () => { logout(); navigate("/login"); };
 
   return (
     <aside className="w-[240px] min-w-[240px] h-screen bg-sidebar flex flex-col sticky top-0">
       <div className="px-6 py-6 flex items-center gap-2.5">
-<img
-  src="/logo_loxify.png"
-  alt="Polify"
-  className="w-8 h-8 object-contain"
-/>
+        <img
+          src="/logo_loxify.png"
+          alt="Polify"
+          className="w-8 h-8 object-contain"
+        />
         <span className="text-white tracking-tight" style={{ fontSize: "20px", fontWeight: 700 }}>Polify</span>
       </div>
 
@@ -51,7 +56,9 @@ export function Sidebar() {
                   : isActive
                   ? "bg-sidebar-accent text-white"
                   : "text-sidebar-foreground hover:text-white hover:bg-sidebar-accent/60"
-              } ${item.to === "/marketplace" ? "hidden" : ""}`
+              } ${item.to === "/marketplace" ? "hidden" : ""} ${
+                item.to === "/criar-pesquisa" ? "mb-3" : "" // <-- AQUI: Adiciona o espaço extra
+              }`
             }
             style={{ fontSize: "14px", fontWeight: 500 }}
           >
@@ -77,7 +84,7 @@ export function Sidebar() {
             {userInitials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white truncate" style={{ fontSize: "13px", fontWeight: 500 }}>{auth.user?.name || "User"}</p>
+            <p className="text-white truncate" style={{ fontSize: "13px", fontWeight: 500 }}>{userName || "User"}</p>
             <div className="flex items-center gap-3 mt-0.5">
               <span className="text-[#a78bfa] flex items-center gap-1" style={{ fontSize: "11px" }}>
                 <Wallet size={10} /> {tokenBalance}
