@@ -10,6 +10,7 @@ import random
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from email_service import send_email
+
 app = Flask(__name__)
 CORS(app)
 load_dotenv()
@@ -215,11 +216,12 @@ def calculate_xp_level(xp_total):
         faixa_atual = f"{current_level['min_xp']}-{current_level['max_xp']} XP"
         progress_percent = 0
         xp_para_proximo_nivel = 0
-        if next_level:
-            xp_para_proximo_nivel = max(next_level["min_xp"] - xp_total, 0)
-            range_size = current_level["max_xp"] - current_level["min_xp"] + 1
-            progress_percent = round(((xp_total - current_level["min_xp"]) / range_size) * 100)
-            progress_percent = max(0, min(progress_percent, 100))
+        
+    if next_level:
+        xp_para_proximo_nivel = max(next_level["min_xp"] - xp_total, 0)
+        range_size = current_level["max_xp"] - current_level["min_xp"] + 1
+        progress_percent = round(((xp_total - current_level["min_xp"]) / range_size) * 100)
+        progress_percent = max(0, min(progress_percent, 100))
 
     return {
         "level_id": current_level["id"],
@@ -262,9 +264,6 @@ def get_user_progress_data(cur, user_id):
     }
 
 
-
-
-
 @app.route("/api/register", methods=["POST"])
 def register():
     data = request.json
@@ -274,7 +273,6 @@ def register():
     password = data.get("password") or ""
     phone = (data.get("phone") or "").strip()
 
-  
     if not name or not email or not password or not phone:
         return jsonify({"success": False, "message": "Preencha todos os campos"}), 400
 
@@ -305,7 +303,6 @@ def register():
                 "message": "Email já cadastrado"
             }), 409
 
-  
         cur.execute(
             "INSERT INTO users (nome, email, password_hash, telefone) VALUES (%s, %s, %s, %s)",
             (name, email, password_hash, phone)
@@ -331,11 +328,11 @@ def register():
             }), 500
         
     finally:
-      
         if cur:
             cur.close()
         if conn:
             conn.close()
+
 
 @app.route("/api/login", methods=["POST"])
 def login():
@@ -346,7 +343,6 @@ def login():
 
     if not email or not password:
         return jsonify({"success": False, "message": "Email e senha obrigatórios"}), 400
-
 
     conn = None
     cur = None
@@ -387,7 +383,6 @@ def login():
                 "name": name,
                 "email": user_email,
                 "telefone": phone
-
             }
         }), 200
     
@@ -430,7 +425,6 @@ def forgot_password():
                 "success": False,
                 "message": "Não encontramos uma conta associada a este E-mail."
             }), 404
-
 
          # Email exists - generate verification code and send email
         verification_code = str(random.randint(100000, 999999))
@@ -478,16 +472,9 @@ def forgot_password():
         if conn:
             conn.close()
 
+
 @app.route("/api/auth/verify-reset-code", methods=["POST"])
 def verify_reset_code():
-    """
-    Verify password reset code
-    Method: POST
-    Request Body: {
-        "email": "user@example.com",
-        "code": "123456"
-    }
-    """
     data = request.json
     email = normalize_email(data.get("email") or "")
     code = data.get("code", "").strip()
@@ -502,7 +489,7 @@ def verify_reset_code():
         conn = get_connection()
         cur = conn.cursor()
 
-        # Check if token exists and is valid
+        # Busca o token e suas informações
         cur.execute(
             """
             SELECT id, user_id, expires_at, used
@@ -517,25 +504,17 @@ def verify_reset_code():
         token = cur.fetchone()
 
         if not token:
-            return jsonify({
-                "success": False,
-                "message": "Código inválido."
-            }), 400
+            return jsonify({"success": False, "message": "Código inválido ou incorreto."}), 400
 
         token_id, user_id, expires_at, used = token
 
         if used:
-            return jsonify({
-                "success": False,
-                "message": "Código já utilizado."
-            }), 400
+            return jsonify({"success": False, "message": "Este código já foi utilizado."}), 400
 
         if datetime.now() > expires_at:
-            return jsonify({
-                "success": False,
-                "message": "Código expirado."
-            }), 400
+            return jsonify({"success": False, "message": "Este código expirou. Solicite um novo."}), 400
 
+        # Se passou por tudo, o código é válido para abrir o Modal no front
         return jsonify({
             "success": True,
             "message": "Código válido.",
@@ -544,7 +523,7 @@ def verify_reset_code():
 
     except Exception as e:
         print(f"ERROR: {str(e)}")
-        return jsonify({"success": False, "message": "Erro ao verificar código"}), 500
+        return jsonify({"success": False, "message": "Erro interno ao verificar o código"}), 500
 
     finally:
         if cur:
@@ -555,25 +534,18 @@ def verify_reset_code():
 
 @app.route("/api/auth/reset-password", methods=["POST"])
 def reset_password():
-    """
-    Reset password with verification code
-    Method: POST
-    Request Body: {
-        "email": "user@example.com",
-        "code": "123456",
-        "new_password": "newpassword123"
-    }
-    """
     data = request.json
     email = normalize_email(data.get("email") or "")
     code = data.get("code", "").strip()
-    new_password = data.get("new_password", "")
+    
+    # Suporte para newPassword (padrão Front-end/JS) e new_password (padrão Python)
+    new_password = data.get("newPassword") or data.get("new_password", "")
 
     if not email or not code or not new_password:
         return jsonify({"success": False, "message": "Email, código e nova senha são obrigatórios"}), 400
 
     if len(new_password) < 6:
-        return jsonify({"success": False, "message": "Senha deve ter no mínimo 6 caracteres"}), 400
+        return jsonify({"success": False, "message": "A nova senha deve ter no mínimo 6 caracteres"}), 400
 
     conn = None
     cur = None
@@ -582,7 +554,7 @@ def reset_password():
         conn = get_connection()
         cur = conn.cursor()
 
-        # Check if token exists and is valid
+        # Revalida o código rigorosamente antes de permitir a alteração
         cur.execute(
             """
             SELECT id, user_id, expires_at, used
@@ -597,57 +569,53 @@ def reset_password():
         token = cur.fetchone()
 
         if not token:
-            return jsonify({
-                "success": False,
-                "message": "Código inválido."
-            }), 400
+            return jsonify({"success": False, "message": "Código inválido."}), 400
 
         token_id, user_id, expires_at, used = token
 
         if used:
-            return jsonify({
-                "success": False,
-                "message": "Código já utilizado."
-            }), 400
+            return jsonify({"success": False, "message": "Este código já foi utilizado."}), 400
 
         if datetime.now() > expires_at:
-            return jsonify({
-                "success": False,
-                "message": "Código expirado."
-            }), 400
+            return jsonify({"success": False, "message": "O código expirou. Solicite um novo."}), 400
 
-        # Update password
+        # 1. Atualiza a senha com hash
         password_hash = generate_password_hash(new_password)
         cur.execute(
             "UPDATE users SET password_hash = %s WHERE id = %s",
             (password_hash, user_id)
         )
 
-        # Mark token as used
+        # 2. Invalida o token exato que acabou de ser usado
         cur.execute(
             "UPDATE password_reset_tokens SET used = TRUE WHERE id = %s",
             (token_id,)
+        )
+
+        # 3. Trava de segurança extra: invalida outros tokens pendentes desse mesmo usuário
+        cur.execute(
+            "UPDATE password_reset_tokens SET used = TRUE WHERE email = %s AND used = FALSE",
+            (email,)
         )
 
         conn.commit()
 
         return jsonify({
             "success": True,
-            "message": "Senha redefinida com sucesso."
+            "message": "Senha redefinida com sucesso!"
         }), 200
 
     except Exception as e:
         if conn:
             conn.rollback()
         print(f"ERROR: {str(e)}")
-        return jsonify({"success": False, "message": "Erro ao redefinir senha"}), 500
+        return jsonify({"success": False, "message": "Erro interno ao redefinir a senha"}), 500
 
     finally:
         if cur:
             cur.close()
         if conn:
             conn.close()
-
 @app.route("/api/users/<int:user_id>/progress", methods=["GET"])
 def get_user_progress(user_id):
     conn = None
