@@ -64,7 +64,7 @@ export function Settings() {
     navigate("/login");
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     const errors: Record<string, string> = {};
     if (!currentPassword) errors.current = t("auth.error.password");
     else if (currentPassword.length < 6) errors.current = t("auth.error.passwordMin");
@@ -77,7 +77,7 @@ export function Settings() {
       return;
     }
 
-    const success = changePassword(currentPassword, newPassword);
+    const success = await changePassword(currentPassword, newPassword);
     if (success) {
       toast.success("Senha alterada com sucesso!");
       setPasswordModal(false);

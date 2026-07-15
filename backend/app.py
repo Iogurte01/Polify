@@ -616,6 +616,89 @@ def reset_password():
             cur.close()
         if conn:
             conn.close()
+
+
+@app.route("/api/auth/change-password", methods=["POST"])
+def change_password():
+    """
+    Change password for authenticated user
+    Validates current password before updating to new password
+    Method: POST
+    Request Body: {
+        "user_id": 123,
+        "current_password": "oldpassword",
+        "new_password": "newpassword"
+    }
+    """
+    data = request.json
+    user_id = data.get("user_id")
+    current_password = data.get("current_password", "")
+    new_password = data.get("new_password", "")
+
+    print(f"DEBUG - change_password: user_id={user_id}, current_password_len={len(current_password)}, new_password_len={len(new_password)}")
+
+    if not user_id or not current_password or not new_password:
+        return jsonify({"success": False, "message": "ID do usuário, senha atual e nova senha são obrigatórios"}), 400
+
+    if len(new_password) < 6:
+        return jsonify({"success": False, "message": "A nova senha deve ter no mínimo 6 caracteres"}), 400
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Get user's current password hash
+        cur.execute(
+            "SELECT id, password_hash FROM users WHERE id = %s",
+            (user_id,)
+        )
+
+        user = cur.fetchone()
+
+        if not user:
+            print(f"DEBUG - User not found for user_id={user_id}")
+            return jsonify({"success": False, "message": "Usuário não encontrado"}), 404
+
+        db_user_id, password_hash = user
+        print(f"DEBUG - Found user: db_user_id={db_user_id}, password_hash exists={bool(password_hash)}")
+
+        # Verify current password
+        password_valid = check_password_hash(password_hash, current_password)
+        print(f"DEBUG - Password validation result: {password_valid}")
+        
+        if not password_valid:
+            return jsonify({"success": False, "message": "Senha atual incorreta"}), 401
+
+        # Update to new password hash
+        new_password_hash = generate_password_hash(new_password)
+        cur.execute(
+            "UPDATE users SET password_hash = %s WHERE id = %s",
+            (new_password_hash, user_id)
+        )
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Senha alterada com sucesso!"
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": "Erro interno ao alterar senha"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
 @app.route("/api/users/<int:user_id>/progress", methods=["GET"])
 def get_user_progress(user_id):
     conn = None

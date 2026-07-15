@@ -101,7 +101,7 @@ interface AppContextType extends AppState {
   duplicateSurvey: (id: string) => void;
   boostSurvey: (id: string) => Promise<boolean>;
   deleteAccount: () => void;
-  changePassword: (currentPass: string, newPass: string) => boolean;
+  changePassword: (currentPass: string, newPass: string) => Promise<boolean>;
   rateRespondent: (respondentId: string, answers: Record<string, boolean>) => void;
   updateDemographics: (data: Partial<Demographics>) => void;
   completeOnboarding: () => void;
@@ -874,10 +874,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAuth({ isAuthenticated: false, user: null });
   }, []);
 
-  const changePassword = useCallback((currentPass: string, newPass: string): boolean => {
-    if (currentPass.length < 6 || newPass.length < 6) return false;
-    return true;
-  }, []);
+  const changePassword = useCallback(async (currentPass: string, newPass: string): Promise<boolean> => {
+    const userId = auth.user?.id || currentUser.id;
+
+    try {
+      const response = await fetch(`${URL_backend}/api/auth/change-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          current_password: currentPass,
+          new_password: newPass
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        return true;
+      } else {
+        console.error("Erro ao alterar senha:", data.message);
+        return false;
+      }
+    } catch (error) {
+      console.error("Erro ao alterar senha:", error);
+      return false;
+    }
+  }, [auth.user?.id]);
 
   // Rate respondent with structured questions
   const rateRespondent = useCallback((respondentId: string, answers: Record<string, boolean>) => {
