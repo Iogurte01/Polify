@@ -511,7 +511,7 @@ def verify_reset_code():
         if used:
             return jsonify({"success": False, "message": "Este código já foi utilizado."}), 400
 
-        if datetime.now() > expires_at:
+        if datetime.now() > expires_at.replace(tzinfo=None):
             return jsonify({"success": False, "message": "Este código expirou. Solicite um novo."}), 400
 
         # Se passou por tudo, o código é válido para abrir o Modal no front
@@ -576,7 +576,7 @@ def reset_password():
         if used:
             return jsonify({"success": False, "message": "Este código já foi utilizado."}), 400
 
-        if datetime.now() > expires_at:
+        if datetime.now() > expires_at.replace(tzinfo=None):
             return jsonify({"success": False, "message": "O código expirou. Solicite um novo."}), 400
 
         # 1. Atualiza a senha com hash
