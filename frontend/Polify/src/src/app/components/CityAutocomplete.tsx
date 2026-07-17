@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { citiesByState } from "../data/mockData";
+import { fetchCitiesByState } from "../services/IBGE_services";
 
 interface CityAutocompleteProps {
   stateUf: string;
@@ -15,11 +15,31 @@ export function CityAutocomplete({ stateUf, value, onChange, placeholder = "Busc
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const cities = stateUf ? (citiesByState[stateUf] || []) : [];
-  const filtered = query
-    ? cities.filter(c => c.toLowerCase().includes(query.toLowerCase())).slice(0, 10)
-    : cities.slice(0, 10);
+// Novos states para gerenciar a API do IBGE
+  const [cities, setCities] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
+  // Busca as cidades quando o estado (stateUf) mudar
+  useEffect(() => {
+    async function loadCities() {
+      if (!stateUf) {
+        setCities([]);
+        return;
+      }
+      
+      setIsLoading(true);
+      const fetchedCities = await fetchCitiesByState(stateUf);
+      setCities(fetchedCities);
+      setIsLoading(false);
+    }
+
+    loadCities();
+  }, [stateUf]);
+
+  // Sua lógica de filtro mantida (agora tipando o 'c' como string para o TS não reclamar)
+  const filtered = query
+    ? cities.filter((c: string) => c.toLowerCase().includes(query.toLowerCase())).slice(0, 10)
+    : cities.slice(0, 10);
   useEffect(() => {
     setQuery(value);
   }, [value]);
@@ -49,14 +69,16 @@ export function CityAutocomplete({ stateUf, value, onChange, placeholder = "Busc
   };
 
   return (
+
+
     <div ref={wrapperRef} className="relative">
       <input
         type="text"
         value={query}
         onChange={(e) => handleInputChange(e.target.value)}
         onFocus={() => setIsOpen(true)}
-        placeholder={placeholder}
-        disabled={disabled || !stateUf}
+        placeholder={isLoading ? "Carregando cidades..." : placeholder}
+        disabled={disabled || !stateUf || isLoading}
         className={`w-full bg-input-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] disabled:opacity-40 ${className}`}
         style={{ fontSize: "13px" }}
       />
