@@ -326,8 +326,8 @@ export function CreateSurvey() {
              </div>
             <p className="text-muted-foreground mb-6">Deseja publicar?</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowConfirm(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
-              <button onClick={confirmPublish} className="bg-[#6366f1] text-white px-4 py-2 rounded-lg">Confirmar</button>
+              <button onClick={() => setShowConfirm(false)} disabled={isSubmitting} className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">Cancelar</button>
+              <button onClick={confirmPublish} disabled={isSubmitting} className="bg-[#6366f1] text-white px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed min-w-[104px]">{isSubmitting ? "..." : "Confirmar"}</button>
             </div>
           </div>
         </div>
