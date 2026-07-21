@@ -576,30 +576,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
- const loginGoogle = useCallback(async (accessToken: string): Promise<boolean> => {
+ const loginGoogle = useCallback(async (code: string): Promise<boolean> => {
+  console.log("Entrou em loginGoogle");
   try {
-    const response = await fetch(`${URL_backend}/api/auth/google`, {
+    console.log("Código recebido:", code);
+
+    const response = await fetch(`${URL_backend}/api/login/google`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        access_token: accessToken,
+        code,
       }),
     });
 
+    console.log("Status:", response.status);
+
     const data = await response.json();
 
+    console.log("Resposta do backend:", data);
+
     if (data.success) {
+      console.log("Entrou no if");
+
       const authData = {
         isAuthenticated: true,
         user: data.user,
       };
 
-      setAuth(authData);
-      localStorage.setItem("polify_auth", JSON.stringify(authData));
+      console.log("AuthData:", authData);
 
-      // Fetch wallet data after successful login
+      setAuth(authData);
+
+      console.log("setAuth executado");
+
+      localStorage.setItem(
+        "polify_auth",
+        JSON.stringify(authData)
+      );
+
       if (data.user?.id) {
         await fetchWalletData(data.user.id);
       }
@@ -607,9 +623,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return true;
     }
 
+    console.log("data.success == false");
     return false;
+
   } catch (error) {
-    console.error("Erro no login com Google:", error);
+    console.error(error);
     return false;
   }
 }, [fetchWalletData]);

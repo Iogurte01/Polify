@@ -4,15 +4,18 @@ import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
 import { toast } from "sonner";
 import { LoadingActionButton } from "../components/ui/loading-action-button";
+import GoogleButton from "../components/auth/GoogleButton";
+
 
 export function Login() {
-  const { login, loginGoogle, t } = useApp();
+  const { login, t } = useApp();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -38,21 +41,6 @@ export function Login() {
       } else {
         setErrors({ form: t("auth.error.invalid") });
       }
-    }, 600);
-  };
-
-  const handleGoogle = () => {
-    setLoading(true);
-    setTimeout(async () => {
-      const success = await login(email, password);
-      setLoading(false);
-
-      if (success) {
-        toast.success(t("auth.welcome") + "!");
-        navigate("/");
-      } else {
-        setErrors({ form: t("auth.error.invalid") });
-  }
     }, 600);
   };
 
@@ -105,11 +93,8 @@ export function Login() {
           </p>
 
           {/* Google */}
-          <button
-            onClick={handleGoogle}
-            disabled={loading}
+          <GoogleButton
             className="w-full flex items-center justify-center gap-2 bg-card border border-border text-foreground py-2.5 rounded-xl hover:bg-secondary transition-colors mb-4"
-            style={{ fontSize: "14px", fontWeight: 500 }}
           >
             <svg width="18" height="18" viewBox="0 0 18 18">
               <path d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92a8.78 8.78 0 0 0 2.68-6.62z" fill="#4285F4"/>
@@ -117,8 +102,9 @@ export function Login() {
               <path d="M3.97 10.71A5.41 5.41 0 0 1 3.69 9c0-.6.1-1.17.28-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.04l3.01-2.33z" fill="#FBBC05"/>
               <path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z" fill="#EA4335"/>
             </svg>
+
             {t("auth.loginGoogle")}
-          </button>
+          </GoogleButton>
 
           <div className="flex items-center gap-3 mb-4">
             <div className="flex-1 h-px bg-border" />

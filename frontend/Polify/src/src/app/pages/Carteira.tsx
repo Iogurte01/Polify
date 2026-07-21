@@ -138,11 +138,14 @@ export function Carteira() {
 
       <div className="grid grid-cols-3 gap-6">
         {/* Transaction History */}
-        <div className="col-span-2 bg-card border border-border rounded-xl">
-          <div className="px-5 py-4 border-b border-border">
-            <h3 className="text-foreground" style={{ fontSize: "15px" }}>Extrato Detalhado</h3>
+        <div className="col-span-2 bg-card border border-border rounded-xl flex flex-col h-[600px]">
+          <div className="px-5 py-4 border-b border-border flex-shrink-0">
+            <h3 className="text-foreground" style={{ fontSize: "15px" }}>
+              Extrato Detalhado
+            </h3>
           </div>
-          <div className="divide-y divide-border">
+
+          <div className="flex-1 overflow-y-auto divide-y divide-border">
             {tokenHistory.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground" style={{ fontSize: "13px" }}>Nenhuma transação ainda.</p>
@@ -221,7 +224,7 @@ export function Carteira() {
               <h3 className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>Compra em Fase Beta</h3>
             </div>
             <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6">
-              <p className="text-amber-900 dark:text-amber-100" style={{ fontSize: "14px", lineHeight: "1.6 " }}>
+              <p className="text-amber-700" style={{ fontSize: "14px", lineHeight: "1.6 " }}>
                 Esta é uma compra fictícia utilizada apenas para testes internos e pesquisas de comportamento durante a fase beta da plataforma.
               </p>
             </div>

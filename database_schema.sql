@@ -38,13 +38,22 @@ CREATE TABLE users (
     pais VARCHAR(100),
     telefone VARCHAR(20),
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+
+    password_hash VARCHAR(255),
+
+    -- Login Google
+    google_id VARCHAR(255) UNIQUE,
+    foto_perfil TEXT,
+    email_verificado BOOLEAN DEFAULT FALSE,
+    auth_provider VARCHAR(20) NOT NULL DEFAULT 'local'
+        CHECK (auth_provider IN ('local', 'google')),
+
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
     CONSTRAINT users_id_check CHECK (id > 0),
     CONSTRAINT users_nome_not_null CHECK (nome IS NOT NULL),
-    CONSTRAINT users_email_not_null CHECK (email IS NOT NULL),
-    CONSTRAINT users_password_hash_not_null CHECK (password_hash IS NOT NULL)
+    CONSTRAINT users_email_not_null CHECK (email IS NOT NULL)
 );
 
 -- =====================================================
@@ -192,6 +201,8 @@ CREATE TABLE password_reset_tokens (
 
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_nome ON users(nome);
+CREATE INDEX idx_users_google_id ON users(google_id);
+CREATE INDEX idx_users_auth_provider ON users(auth_provider);
 
 CREATE INDEX idx_user_progress_user_id ON user_progress(user_id);
 CREATE INDEX idx_user_progress_xp_total ON user_progress(xp_total);

@@ -10,6 +10,10 @@ import random
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from email_service import send_email
+import requests
+import os
+import secrets
+from werkzeug.security import generate_password_hash
 
 app = Flask(__name__)
 CORS(app)
@@ -392,7 +396,187 @@ def login():
         if conn:
             conn.close()
 
+@app.route("/api/login/google", methods=["POST"])
+def login_google():
+    data = request.get_json()
 
+    code = data.get("code")
+
+    if not code:
+        return jsonify({"error": "Código não informado"}), 400
+
+    token_response = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "code": code,
+            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+            "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+            "redirect_uri": "postmessage",
+            "grant_type": "authorization_code",
+        },
+    )
+
+    print(token_response.status_code)
+    print(token_response.text)
+
+    if token_response.status_code != 200:
+        return jsonify({
+            "error": "Falha ao trocar código por token",
+            "google": token_response.json()
+        }), 400
+
+    token_data = token_response.json()
+
+    access_token = token_data["access_token"]
+
+    userinfo = requests.get(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        headers={
+            "Authorization": f"Bearer {access_token}"
+        },
+    )
+
+    if userinfo.status_code != 200:
+        return jsonify({"error": "Não foi possível obter usuário"}), 400
+
+    google_user = userinfo.json()
+
+    print("=" * 60)
+    print("DADOS DO GOOGLE:")
+    print(google_user)
+    print("=" * 60)
+
+    conn = get_connection()
+    cur = conn.cursor()
+    # =====================================================
+    # 1 - Procura pelo Google ID
+    # =====================================================
+
+    cur.execute("""
+        SELECT id, nome, email, telefone
+        FROM users
+        WHERE google_id = %s
+    """, (google_user["sub"],))
+
+    user = cur.fetchone()
+
+
+    # =====================================================
+    # 2 - Se não encontrou pelo Google,
+    # procura pelo e-mail
+    # =====================================================
+
+    if not user:
+
+        cur.execute("""
+            SELECT id, nome, email, telefone
+            FROM users
+            WHERE LOWER(email)=LOWER(%s)
+        """, (google_user["email"],))
+
+        user = cur.fetchone()
+
+
+    # =====================================================
+    # 3 - Encontrou pelo e-mail?
+    # Vincula a conta Google
+    # =====================================================
+
+        if user:
+
+            user_id, nome, email, telefone = user
+
+            cur.execute("""
+                UPDATE users
+                SET
+                    google_id=%s,
+                    foto_perfil=%s,
+                    email_verificado=%s,
+                    auth_provider='google'
+                WHERE id=%s
+            """, (
+                google_user["sub"],
+                google_user.get("picture"),
+                google_user.get("email_verified", False),
+                user_id
+            ))
+
+            conn.commit()
+
+
+    # =====================================================
+    # 4 - Ainda não encontrou?
+    # Cria usuário novo
+    # =====================================================
+
+        else:
+
+            cur.execute("""
+                INSERT INTO users (
+                    nome,
+                    sobrenome,
+                    email,
+                    password_hash,
+                    google_id,
+                    foto_perfil,
+                    email_verificado,
+                    auth_provider
+                )
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                RETURNING id, nome, email, telefone
+            """, (
+                google_user["given_name"],
+                google_user.get("family_name"),
+                google_user["email"],
+                generate_password_hash(secrets.token_hex(32)),
+                google_user["sub"],
+                google_user.get("picture"),
+                google_user.get("email_verified", False),
+                "google"
+            ))
+
+            conn.commit()
+
+            user = cur.fetchone()
+
+
+    # =====================================================
+    # 5 - Caso tenha feito UPDATE,
+    # busca novamente o usuário
+    # =====================================================
+
+    if not user:
+
+        cur.execute("""
+            SELECT id, nome, email, telefone
+            FROM users
+            WHERE google_id=%s
+        """, (google_user["sub"],))
+
+        user = cur.fetchone()
+
+
+    # =====================================================
+    # 6 - Login
+    # =====================================================
+
+    user_id, nome, email, telefone = user
+
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "message": "Login realizado com sucesso",
+        "user": {
+            "id": user_id,
+            "name": nome,
+            "email": email,
+            "telefone": telefone
+        }
+    }), 200
+
+ 
 @app.route("/api/auth/forgot-password", methods=["POST"])
 def forgot_password():
     """
