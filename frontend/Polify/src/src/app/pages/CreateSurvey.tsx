@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
-  PlusCircle, Trash2, GripVertical, ChevronDown, Calculator, Target,
+  PlusCircle, Trash2, ChevronDown, Calculator, Target,
   Clock, Send, ArrowUp, ArrowDown, X,
 } from "lucide-react";
 import { categories, brazilianStates, URL_backend } from "../data/mockData";
@@ -24,6 +24,20 @@ const questionTypeLabels: Record<QuestionType, string> = {
   open: "Aberta",
   scale: "Escala",
   checkbox: "Checkbox",
+};
+
+const COST_PER_QUESTION_TYPE: Record<QuestionType, number> = {
+  multiple: 10,
+  open: 50,
+  scale: 10,
+  checkbox: 10,
+};
+
+const REWARD_PER_QUESTION_TYPE: Record<QuestionType, number> = {
+  multiple: 1,
+  open: 5,
+  scale: 1,
+  checkbox: 1,
 };
 
 export function CreateSurvey() {
@@ -85,8 +99,8 @@ export function CreateSurvey() {
   const validQuestions = questions.filter((question) => question.text.trim());
   const estimatedMinutes = Math.max(3, validQuestions.length * 2 + (includeDemographics ? 2 : 0));
   const estimatedTime = `${estimatedMinutes} min`;
-  const totalTokens = estimatedMinutes * 5;
-  const respondentReward = estimatedMinutes;
+  const totalTokens = validQuestions.reduce((sum, q) => sum + COST_PER_QUESTION_TYPE[q.type], 0);
+  const respondentReward = validQuestions.reduce((sum, q) => sum + REWARD_PER_QUESTION_TYPE[q.type], 0);
   const estimatedReach = segState ? 450 : 1200;
 
   const validate = () => {
@@ -204,7 +218,6 @@ export function CreateSurvey() {
             <div key={question.id} className="bg-card border border-border rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <GripVertical size={16} className="text-muted-foreground" />
                   <span className="text-muted-foreground" style={{ fontSize: "12px", fontWeight: 500 }}>{t("create.question")} {index + 1}</span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -284,11 +297,11 @@ export function CreateSurvey() {
             <div className="space-y-2.5">
               <div className="flex justify-between" style={{ fontSize: "13px" }}>
                 <span className="text-muted-foreground">Custo</span>
-                <span className={tokenBalance >= totalTokens ? "text-[#6366f1]" : "text-red-500"} style={{ fontWeight: 600 }}>{totalTokens} tokens</span>
+                <span className={validQuestions.length > 0 && tokenBalance >= totalTokens ? "text-[#6366f1]" : validQuestions.length > 0 ? "text-red-500" : "text-muted-foreground"} style={{ fontWeight: 600 }}>{validQuestions.length > 0 ? `${totalTokens} tokens` : "..."}</span>
               </div>
               <div className="flex justify-between" style={{ fontSize: "13px" }}>
                 <span className="text-muted-foreground">Recompensa</span>
-                <span className="text-emerald-600" style={{ fontWeight: 500 }}>{respondentReward} tokens</span>
+                <span className={validQuestions.length > 0 ? "text-emerald-600" : "text-muted-foreground"} style={{ fontWeight: 500 }}>{validQuestions.length > 0 ? `${respondentReward} tokens` : "..."}</span>
               </div>
             </div>
           </div>

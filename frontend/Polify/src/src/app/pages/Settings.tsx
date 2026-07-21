@@ -36,10 +36,8 @@ export function Settings() {
   const navigate = useNavigate();
   // Adicionamos o 'user' aqui na desestruturação do useApp
   const { user, theme, setTheme, lang, setLang, deleteAccount, changePassword, downloadUserData, requestDataDeletion, lgpdDeletionStatus, t } = useApp();
-  const [emailNotif, setEmailNotif] = useState(true);
   const [pushNotif, setPushNotif] = useState(false);
   const [newSurveys, setNewSurveys] = useState(true);
-  const [weeklyReport, setWeeklyReport] = useState(true);
   const [profilePublic, setProfilePublic] = useState(true);
   const [showActivity, setShowActivity] = useState(false);
   const [lgpdConsent, setLgpdConsent] = useState(true);
@@ -115,10 +113,8 @@ export function Settings() {
             <Bell size={16} className="text-[#6366f1]" />
             <h3 className="text-foreground" style={{ fontSize: "15px" }}>{t("settings.notifications")}</h3>
           </div>
-          <ToggleSetting label={t("settings.emailNotif")} description={t("settings.emailNotifDesc")} enabled={emailNotif} onChange={setEmailNotif} />
           <ToggleSetting label={t("settings.pushNotif")} description={t("settings.pushNotifDesc")} enabled={pushNotif} onChange={setPushNotif} />
           <ToggleSetting label={t("settings.newSurveys")} description={t("settings.newSurveysDesc")} enabled={newSurveys} onChange={setNewSurveys} />
-          <ToggleSetting label={t("settings.weeklyReport")} description={t("settings.weeklyReportDesc")} enabled={weeklyReport} onChange={setWeeklyReport} />
         </div>
 
         {/* Privacy */}
