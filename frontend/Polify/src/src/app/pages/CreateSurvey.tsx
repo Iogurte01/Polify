@@ -40,6 +40,13 @@ const REWARD_PER_QUESTION_TYPE: Record<QuestionType, number> = {
   checkbox: 1,
 };
 
+const TIME_PER_QUESTION_TYPE: Record<QuestionType, number> = {
+  multiple: 0.5,
+  open: 1,
+  scale: 0.5,
+  checkbox: 0.5,
+};
+
 export function CreateSurvey() {
   const navigate = useNavigate();
   const { tokenBalance, createForm, spendTokens, t } = useApp();
@@ -50,7 +57,6 @@ export function CreateSurvey() {
   const [questions, setQuestions] = useState<Question[]>([
     { id: "q1", type: "multiple", text: "", options: ["Opção 1", "Opção 2", "Opção 3"] },
   ]);
-  const [includeDemographics, setIncludeDemographics] = useState(true);
   const [segState, setSegState] = useState("");
   const [segCity, setSegCity] = useState("");
   const [segAge, setSegAge] = useState("");
@@ -97,7 +103,7 @@ export function CreateSurvey() {
   };
 
   const validQuestions = questions.filter((question) => question.text.trim());
-  const estimatedMinutes = Math.max(3, validQuestions.length * 2 + (includeDemographics ? 2 : 0));
+  const estimatedMinutes = Math.max(1, validQuestions.reduce((sum, q) => sum + TIME_PER_QUESTION_TYPE[q.type], 0));
   const estimatedTime = `${estimatedMinutes} min`;
   const totalTokens = validQuestions.reduce((sum, q) => sum + COST_PER_QUESTION_TYPE[q.type], 0);
   const respondentReward = validQuestions.reduce((sum, q) => sum + REWARD_PER_QUESTION_TYPE[q.type], 0);
@@ -129,7 +135,9 @@ export function CreateSurvey() {
         categoria: selectedCategory,
         min_respondentes: 200,
         tempo_max_dias: 30,
-        pontos_base: totalTokens
+        pontos_base: totalTokens,
+        pontos_recompensa: respondentReward,
+        tempo_estimado: estimatedTime
       });
 
       if (!formResult.success) {
@@ -263,16 +271,6 @@ export function CreateSurvey() {
             </div>
           ))}
           <button onClick={addQuestion} className="w-full border-2 border-dashed border-border rounded-xl py-4 flex items-center justify-center gap-2 text-muted-foreground hover:text-[#6366f1] hover:border-[#6366f1]/40 transition-colors" style={{ fontSize: "14px", fontWeight: 500 }}><PlusCircle size={18} />{t("create.addQuestion")}</button>
-          
-          <div className="bg-card border border-border rounded-xl p-5 flex items-center justify-between">
-            <div>
-              <h4 className="text-foreground" style={{ fontSize: "14px" }}>{t("create.demographics")}</h4>
-              <p className="text-muted-foreground mt-0.5" style={{ fontSize: "12px" }}>{t("create.demographicsSub")}</p>
-            </div>
-            <button onClick={() => setIncludeDemographics(!includeDemographics)} className={`w-11 h-6 rounded-full transition-colors relative ${includeDemographics ? "bg-[#6366f1]" : "bg-switch-background"}`}>
-              <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 transition-transform ${includeDemographics ? "translate-x-[22px]" : "translate-x-[2px]"}`} />
-            </button>
-          </div>
         </div>
 
         {/* Lado Direito */}

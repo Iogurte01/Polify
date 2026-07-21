@@ -1,5 +1,5 @@
 -- =====================================================
--- POLIFY FINAL DATABASE SCHEMA
+-- POLIFY FINAL DATABASE SCHEMA (ATUALIZADO)
 -- =====================================================
 -- Consolidated final PostgreSQL schema after applying all SQL files
 -- and removing migrations / incremental scripts.
@@ -20,7 +20,7 @@ DROP TABLE IF EXISTS purchase_intentions CASCADE;
 DROP TABLE IF EXISTS user_progress CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS token_balance CASCADE;
-DROP TABLE IF EXISTS password_reset_tokens CASCADE;  -- [NOVO] Tabela de tokens de redefinição de senha
+DROP TABLE IF EXISTS password_reset_tokens CASCADE;  -- Tabela de tokens de redefinição de senha
 
 DROP FUNCTION IF EXISTS update_users_updated_at();
 DROP FUNCTION IF EXISTS update_updated_at_column();
@@ -97,6 +97,11 @@ CREATE TABLE header_formulario (
     tempo_max_dias INTEGER CHECK (tempo_max_dias >= 1),
     id_criador INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     pontos_base INTEGER DEFAULT 0 CHECK (pontos_base >= 0),
+    
+    -- [NOVAS COLUNAS]
+    pontos_recompensa INTEGER DEFAULT 0 CHECK (pontos_recompensa >= 0),
+    tempo_estimado VARCHAR(50),
+    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE
@@ -180,7 +185,7 @@ CREATE TABLE token_balance (
 );
 
 -- =====================================================
--- 9. PASSWORD_RESET_TOKENS [NOVO] - Tokens de Redefinição de Senha
+-- 9. PASSWORD_RESET_TOKENS - Tokens de Redefinição de Senha
 -- =====================================================
 
 CREATE TABLE password_reset_tokens (
@@ -228,7 +233,6 @@ CREATE INDEX idx_token_balance_user ON token_balance(user_id);
 CREATE INDEX idx_token_balance_created ON token_balance(created_at);
 CREATE INDEX idx_token_balance_status ON token_balance(purchase_status);
 
--- [NOVO] Índices para password_reset_tokens
 CREATE INDEX idx_password_reset_tokens_user ON password_reset_tokens(user_id);
 CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
 CREATE INDEX idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
@@ -292,7 +296,6 @@ BEFORE UPDATE ON token_balance
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
--- [NOVO] Trigger para password_reset_tokens
 CREATE TRIGGER update_password_reset_tokens_updated_at
 BEFORE UPDATE ON password_reset_tokens
 FOR EACH ROW
@@ -311,6 +314,11 @@ SELECT
     hf.min_respondentes,
     hf.tempo_max_dias,
     hf.pontos_base,
+    
+    -- [NOVAS COLUNAS AQUI]
+    hf.pontos_recompensa,
+    hf.tempo_estimado,
+    
     hf.created_at,
     hf.is_active,
     u.nome || ' ' || COALESCE(u.sobrenome, '') AS criador_nome,

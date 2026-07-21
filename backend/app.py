@@ -919,17 +919,6 @@ def get_user_progress(user_id):
 def create_form():
     """
     Create a new survey/form
-    Method: POST
-    Request Body: {
-        "nome_formulario": "Survey Name",
-        "descricao_formulario": "Description",
-        "categoria": "tecnologia",
-        "min_respondentes": 50,
-        "tempo_max_dias": 30,
-        "pontos_base": 10,
-        "id_criador": 3
-    }
-    Saves in: header_formulario table
     """
     data = request.json
 
@@ -939,6 +928,11 @@ def create_form():
     min_respondentes = data.get("min_respondentes", 50)
     tempo_max_dias = data.get("tempo_max_dias", 30)
     pontos_base = data.get("pontos_base", 10)
+    
+    # [NOVO] Capturando os novos campos
+    pontos_recompensa = data.get("pontos_recompensa", pontos_base) # fallback pro pontos_base se nulo
+    tempo_estimado = data.get("tempo_estimado")
+
     id_criador = data.get("id_criador")
 
     # Validar campos obrigatórios
@@ -952,15 +946,15 @@ def create_form():
         conn = get_connection()
         cur = conn.cursor()
 
-        # Inserir o formulário
+        # [ATUALIZADO] Inserir o formulário com os novos campos
         cur.execute(
             """
             INSERT INTO header_formulario 
-            (nome_formulario, descricao_formulario, categoria, min_respondentes, tempo_max_dias, pontos_base, id_criador)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            (nome_formulario, descricao_formulario, categoria, min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, id_criador)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, created_at
             """,
-            (nome_formulario, descricao_formulario, categoria, min_respondentes, tempo_max_dias, pontos_base, id_criador)
+            (nome_formulario, descricao_formulario, categoria, min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, id_criador)
         )
 
         result = cur.fetchone()
@@ -977,6 +971,8 @@ def create_form():
             "min_respondentes": min_respondentes,
             "tempo_max_dias": tempo_max_dias,
             "pontos_base": pontos_base,
+            "pontos_recompensa": pontos_recompensa, # [NOVO]
+            "tempo_estimado": tempo_estimado,       # [NOVO]
             "id_criador": id_criador,
             "created_at": created_at.isoformat() if created_at else None,
             "is_active": True
@@ -1004,8 +1000,6 @@ def create_form():
 def get_forms():
     """
     Get all available forms/surveys for public listing
-    Method: GET
-    Returns: List of all active forms with question count
     """
     conn = None
     cur = None
@@ -1014,7 +1008,7 @@ def get_forms():
         conn = get_connection()
         cur = conn.cursor()
 
-        # Get all active forms with question count
+        # [ATUALIZADO] Get all active forms with question count
         query = """
             SELECT 
                 hf.id, 
@@ -1023,12 +1017,14 @@ def get_forms():
                 hf.categoria, 
                 hf.min_respondentes, 
                 hf.pontos_base, 
+                hf.pontos_recompensa, 
+                hf.tempo_estimado,
                 hf.created_at,
                 COUNT(pf.id_perg) as total_questions
             FROM header_formulario hf
             LEFT JOIN perguntas_form pf ON hf.id = pf.id_form
             WHERE hf.is_active = true
-            GROUP BY hf.id, hf.nome_formulario, hf.descricao_formulario, hf.categoria, hf.min_respondentes, hf.pontos_base, hf.created_at
+            GROUP BY hf.id, hf.nome_formulario, hf.descricao_formulario, hf.categoria, hf.min_respondentes, hf.pontos_base, hf.pontos_recompensa, hf.tempo_estimado, hf.created_at
             ORDER BY hf.created_at DESC
         """
 
@@ -1038,8 +1034,9 @@ def get_forms():
         # Format results to match frontend expectations
         forms_list = []
         for form in forms:
+            # [ATUALIZADO] Desempacotando as variáveis na ordem do SELECT
             (form_id, nome_formulario, descricao_formulario, categoria, 
-             min_respondentes, pontos_base, created_at, total_questions) = form
+             min_respondentes, pontos_base, pontos_recompensa, tempo_estimado, created_at, total_questions) = form
 
             # Count real responses for this form
             cur.execute("""
@@ -1058,10 +1055,12 @@ def get_forms():
                 "categoria": categoria,
                 "min_respondentes": min_respondentes,
                 "pontos_base": pontos_base,
+                "pontos_recompensa": pontos_recompensa, # [NOVO]
+                "tempo_estimado": tempo_estimado,       # [NOVO]
                 "created_at": created_at.isoformat() if created_at else None,
                 "total_questions": total_questions or 0,
                 "responses": response_count,
-                "criador_nome": "Anônimo"  # Por enquanto, pode ser implementado join com users se necessário
+                "criador_nome": "Anônimo" 
             })
 
         return jsonify({
@@ -1179,9 +1178,6 @@ def create_question():
 def get_my_surveys():
     """
     Get surveys created by the authenticated user
-    Method: GET
-    Query Params: user_id (required), status (optional), category (optional)
-    Returns: List of user's surveys
     """
     user_id = request.args.get("user_id", type=int)
     status = request.args.get("status")
@@ -1197,10 +1193,10 @@ def get_my_surveys():
         conn = get_connection()
         cur = conn.cursor()
 
-        # Build query with filters
+        # [ATUALIZADO] Build query with filters
         query = """
             SELECT id, nome_formulario, descricao_formulario, categoria, 
-                   min_respondentes, tempo_max_dias, pontos_base, id_criador,
+                   min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, id_criador,
                    created_at, is_active
             FROM header_formulario 
             WHERE id_criador = %s
@@ -1225,8 +1221,9 @@ def get_my_surveys():
         # Format results
         surveys_list = []
         for survey in surveys:
+            # [ATUALIZADO] Desempacotando as variáveis
             (survey_id, nome_formulario, descricao_formulario, categoria, 
-             min_respondentes, tempo_max_dias, pontos_base, id_criador,
+             min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, id_criador,
              created_at, is_active) = survey
 
             # Count responses for this survey
@@ -1247,7 +1244,9 @@ def get_my_surveys():
                 "status": "Ativa" if is_active else "Encerrada",
                 "responses": response_count,
                 "targetResponses": min_respondentes,
-                "tokenReward": pontos_base,
+                "pontos_base": pontos_base,
+                "pontos_recompensa": pontos_recompensa, # [NOVO]
+                "tempo_estimado": tempo_estimado,       # [NOVO]
                 "createdAt": created_at.isoformat() if created_at else None,
                 "source": "created"
             })
@@ -1268,13 +1267,10 @@ def get_my_surveys():
         if conn:
             conn.close()
 
-
 @app.route("/api/forms/<int:form_id>", methods=["GET"])
 def get_form_details(form_id):
     """
     Get details of a specific form
-    Method: GET
-    Returns: Form details including questions
     """
     conn = None
     cur = None
@@ -1283,11 +1279,11 @@ def get_form_details(form_id):
         conn = get_connection()
         cur = conn.cursor()
 
-        # Get form details
+        # [ATUALIZADO] Get form details
         cur.execute(
             """
             SELECT id, nome_formulario, descricao_formulario, categoria, 
-                   min_respondentes, tempo_max_dias, pontos_base, id_criador,
+                   min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, id_criador,
                    created_at, is_active
             FROM header_formulario 
             WHERE id = %s
@@ -1300,8 +1296,9 @@ def get_form_details(form_id):
         if not form:
             return jsonify({"success": False, "message": "Formulário não encontrado"}), 404
 
+        # [ATUALIZADO]
         (form_id_db, nome_formulario, descricao_formulario, categoria, 
-         min_respondentes, tempo_max_dias, pontos_base, id_criador,
+         min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, id_criador,
          created_at, is_active) = form
 
         # Count total responses for this form
@@ -1345,6 +1342,8 @@ def get_form_details(form_id):
             "min_respondentes": min_respondentes,
             "tempo_max_dias": tempo_max_dias,
             "pontos_base": pontos_base,
+            "pontos_recompensa": pontos_recompensa, # [NOVO]
+            "tempo_estimado": tempo_estimado,       # [NOVO]
             "id_criador": id_criador,
             "created_at": created_at.isoformat() if created_at else None,
             "is_active": is_active,

@@ -359,7 +359,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Fetch forms from backend
+// Fetch forms from backend
   const fetchForms = useCallback(async () => {
     try {
       const response = await fetch(`${URL_backend}/api/forms`, {
@@ -378,14 +378,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           title: form.nome_formulario,
           category: form.categoria,
           description: form.descricao_formulario || "",
-          tokenReward: form.pontos_base || 0,
-          estimatedTime: `${Math.max(5, Math.floor(form.total_questions * 2))} min`, // Estimate based on questions
-          responses: form.responses || 0, // Real response count from backend
+          // CORREÇÃO 1: Usando '??' no lugar de '||' e forçando a prioridade na recompensa
+          tokenReward: form.pontos_recompensa ?? form.pontos_base ?? 0,
+          // CORREÇÃO 2: Garantindo que pegue o tempo estimado
+          estimatedTime: form.tempo_estimado ?? `${Math.max(5, Math.floor((form.total_questions || 0) * 2))} min`,
+          responses: form.responses || 0,
           targetResponses: form.min_respondentes || 50,
           status: "Ativa",
           eligible: true,
           trending: calculateTrending(form.responses || 0, form.min_respondentes || 50),
-          boosted: Math.random() > 0.8, // Random boosted
+          boosted: Math.random() > 0.8,
           segmentation: "Geral",
           creator: form.criador_nome,
           createdAt: new Date(form.created_at).toLocaleDateString('pt-BR')
@@ -402,40 +404,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Fetch form details from backend
-  const fetchFormDetails = useCallback(async (formId: string) => {
-    try {
-      const response = await fetch(`${URL_backend}/api/forms/${formId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json"
-        }
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        return { success: true, form: data.form };
-      }
-
-      return { success: false, message: data.message || "Erro ao buscar detalhes do formulário" };
-    } catch (error) {
-      console.error("Erro ao buscar detalhes do formulário:", error);
-      return { success: false, message: "Erro ao conectar com o servidor" };
-    }
-  }, []);
-
   // Fetch user's surveys from backend
   const fetchMySurveys = useCallback(async (status?: string, category?: string) => {
     try {
       const params = new URLSearchParams();
       if (status) params.append('status', status);
       if (category) params.append('categoria', category);
-      // Send current user ID to backend for proper data isolation
-      // Priority: 1) auth.user.id (real logged user), 2) currentUser.id (fallback)
+      
       const userId = auth.user?.id || currentUser.id;
       params.append('user_id', String(userId));
-      console.log('Fetching surveys for user_id:', userId); // Debug log
       
       const response = await fetch(`${URL_backend}/api/my-surveys?${params.toString()}`, {
         method: "GET",
@@ -447,14 +424,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
 
       if (data.success) {
-        // Transform backend data to match frontend MySurvey type (accept both portuguese and english keys)
         const transformedSurveys: MySurvey[] = data.surveys.map((survey: any) => ({
           id: String(survey.id),
           title: survey.title || survey.nome_formulario || "",
           category: survey.category || survey.categoria || "",
           description: survey.description || survey.descricao_formulario || "",
-          tokenReward: survey.tokenReward ?? survey.pontos_base ?? 0,
-          estimatedTime: `${Math.max(5, Math.floor((survey.total_questions || 0) * 2))} min`,
+          // CORREÇÃO 3: Ajuste de fallback seguro para as "Minhas Pesquisas"
+          tokenReward: survey.pontos_recompensa ?? survey.tokenReward ?? survey.pontos_base ?? 0,
+          estimatedTime: survey.tempo_estimado ?? survey.estimatedTime ?? `${Math.max(5, Math.floor((survey.total_questions || 0) * 2))} min`,
           responses: survey.responses ?? survey.total_responses ?? 0,
           targetResponses: survey.targetResponses ?? survey.min_respondentes ?? 50,
           status: survey.status || (survey.is_active ? "Ativa" : "Encerrada"),
@@ -479,6 +456,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [auth.user?.id]);
 
+    // Fetch form details from backend
+  const fetchFormDetails = useCallback(async (formId: string) => {
+    try {
+      const response = await fetch(`${URL_backend}/api/forms/${formId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        return { success: true, form: data.form };
+      }
+
+      return { success: false, message: data.message || "Erro ao buscar detalhes do formulário" };
+    } catch (error) {
+      console.error("Erro ao buscar detalhes do formulário:", error);
+      return { success: false, message: "Erro ao conectar com o servidor" };
+    }
+  }, []);
+
+
   // Create form in backend
   const createForm = useCallback(async (formData: {
     nome_formulario: string;
@@ -487,6 +488,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     min_respondentes?: number;
     tempo_max_dias?: number;
     pontos_base?: number;
+    pontos_recompensa?: number;
+    tempo_estimado?: string;
   }) => {
     try {
       const response = await fetch(`${URL_backend}/api/forms`, {
