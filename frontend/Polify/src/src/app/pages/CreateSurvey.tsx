@@ -139,7 +139,11 @@ export function CreateSurvey() {
         pontos_recompensa: respondentReward,
         tempo_estimado: estimatedTime,
         estado: segState ? segState.split(" - ")[0] : undefined, // Pega apenas a sigla (ex: "SP")
-        cidade: segCity || undefined
+        cidade: segCity || undefined,
+        faixa_etaria: segAge || undefined,
+        genero: segGender || undefined,
+        escolaridade: segEducation || undefined,
+        renda: segIncome || undefined
       });
 
       if (!formResult.success) {

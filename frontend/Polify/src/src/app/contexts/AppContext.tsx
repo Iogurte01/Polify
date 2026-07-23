@@ -89,8 +89,12 @@ interface AppContextType extends AppState {
       pontos_base?: number;
       pontos_recompensa?: number;
       tempo_estimado?: string;
-      estado?: string; // [NOVO]
-      cidade?: string; // [NOVO]
+      estado?: string;
+      cidade?: string;
+      faixa_etaria?: string;
+      genero?: string;
+      escolaridade?: string;
+      renda?: string;
     }) => Promise<{ success: boolean; form?: any; message?: string }>;
   setTheme: (theme: "light" | "dark") => void;
   setLang: (lang: Lang) => void;
@@ -301,13 +305,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return progressPercent >= 40 && responses >= 3;
   };
 
-  // Generate segmentation label based on state and city
-  const generateSegmentation = (state: string | undefined, city: string | undefined): string => {
-    if (!state && !city) return "Geral";
-    if (state && city) return `${city}, ${state}`;
-    if (city) return city;
-    if (state) return state;
-    return "Geral";
+  // Generate segmentation label based on all demographic fields
+  const generateSegmentation = (
+    state: string | undefined,
+    city: string | undefined,
+    faixa_etaria: string | undefined,
+    genero: string | undefined,
+    escolaridade: string | undefined,
+    renda: string | undefined
+  ): string => {
+    const segments: string[] = [];
+
+    if (state) segments.push(state);
+    if (city) segments.push(city);
+    if (faixa_etaria) segments.push(faixa_etaria);
+    if (genero) segments.push(genero);
+    if (escolaridade) segments.push(escolaridade);
+    if (renda) segments.push(renda);
+
+    if (segments.length === 0) return "Geral";
+    return segments.join(", ");
   };
 
   const fetchUserProgress = useCallback(async (userId: number) => {
@@ -401,7 +418,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           eligible: true,
           trending: calculateTrending(form.responses || 0, form.min_respondentes || 50),
           boosted: Math.random() > 0.8,
-          segmentation: generateSegmentation(form.state, form.city),
+          segmentation: generateSegmentation(form.state, form.city, form.faixa_etaria, form.genero, form.escolaridade, form.renda),
           creator: form.criador_nome,
           state: form.state || "",
           city: form.city || "",
@@ -453,7 +470,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           eligible: true,
           trending: calculateTrending(survey.responses ?? survey.total_responses ?? 0, survey.targetResponses ?? survey.min_respondentes ?? 50),
           boosted: Math.random() > 0.8,
-          segmentation: generateSegmentation(survey.state, survey.city),
+          segmentation: generateSegmentation(survey.state, survey.city, survey.faixa_etaria, survey.genero, survey.escolaridade, survey.renda),
           createdAt: new Date(survey.createdAt || survey.created_at).toLocaleDateString('pt-BR'),
           source: survey.source || "created",
           avgQuality: null,
@@ -507,6 +524,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     tempo_estimado?: string;
     estado?: string;
     cidade?: string;
+    faixa_etaria?: string;
+    genero?: string;
+    escolaridade?: string;
+    renda?: string;
   }) => {
     try {
       const response = await fetch(`${URL_backend}/api/forms`, {
@@ -522,7 +543,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           pontos_base: formData.pontos_base || 10,
           // Garantindo o envio explícito para o backend mapear
           estado: formData.estado,
-          city: formData.cidade 
+          city: formData.cidade,
+          faixa_etaria: formData.faixa_etaria,
+          genero: formData.genero,
+          escolaridade: formData.escolaridade,
+          renda: formData.renda
         })
       });
 

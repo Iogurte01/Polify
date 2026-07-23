@@ -102,7 +102,13 @@ CREATE TABLE header_formulario (
     -- [NOVAS COLUNAS DE GEOLOCALIZAÇÃO]
     estado VARCHAR(10),
     cidade VARCHAR(100),
-    
+
+    -- [NOVAS COLUNAS DE SEGMENTAÇÃO DEMOGRÁFICA]
+    faixa_etaria VARCHAR(50),
+    genero VARCHAR(20),
+    escolaridade VARCHAR(50),
+    renda VARCHAR(50),
+
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE

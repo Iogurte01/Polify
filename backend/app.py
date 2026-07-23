@@ -931,9 +931,13 @@ def create_form():
     pontos_recompensa = data.get("pontos_recompensa", pontos_base)
     tempo_estimado = data.get("tempo_estimado")
 
-    # [ADICIONADO] Capturando estado e cidade enviados pelo frontend
+    # [ADICIONADO] Capturando estado, cidade e segmentação demográfica enviados pelo frontend
     estado = data.get("estado")
     cidade = data.get("city") or data.get("cidade")
+    faixa_etaria = data.get("faixa_etaria")
+    genero = data.get("genero")
+    escolaridade = data.get("escolaridade")
+    renda = data.get("renda")
 
     id_criador = data.get("id_criador")
 
@@ -947,15 +951,15 @@ def create_form():
         conn = get_connection()
         cur = conn.cursor()
 
-        # [ATUALIZADO] Inserindo estado e cidade na tabela header_formulario
+        # [ATUALIZADO] Inserindo estado, cidade e segmentação demográfica na tabela header_formulario
         cur.execute(
             """
-            INSERT INTO header_formulario 
-            (nome_formulario, descricao_formulario, categoria, min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, id_criador)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO header_formulario
+            (nome_formulario, descricao_formulario, categoria, min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, faixa_etaria, genero, escolaridade, renda, id_criador)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, created_at
             """,
-            (nome_formulario, descricao_formulario, categoria, min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, id_criador)
+            (nome_formulario, descricao_formulario, categoria, min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, faixa_etaria, genero, escolaridade, renda, id_criador)
         )
 
         result = cur.fetchone()
@@ -975,6 +979,10 @@ def create_form():
             "tempo_estimado": tempo_estimado,
             "state": estado,
             "city": cidade,
+            "faixa_etaria": faixa_etaria,
+            "genero": genero,
+            "escolaridade": escolaridade,
+            "renda": renda,
             "id_criador": id_criador,
             "created_at": created_at.isoformat() if created_at else None,
             "is_active": True
@@ -1011,7 +1019,7 @@ def get_forms():
         conn = get_connection()
         cur = conn.cursor()
 
-        # [ATUALIZADO] Get all active forms with question count, estado and cidade
+        # [ATUALIZADO] Get all active forms with question count, estado, cidade and demographic segmentation
         query = """
             SELECT
                 hf.id,
@@ -1024,12 +1032,16 @@ def get_forms():
                 hf.tempo_estimado,
                 hf.estado,
                 hf.cidade,
+                hf.faixa_etaria,
+                hf.genero,
+                hf.escolaridade,
+                hf.renda,
                 hf.created_at,
                 COUNT(pf.id_perg) as total_questions
             FROM header_formulario hf
             LEFT JOIN perguntas_form pf ON hf.id = pf.id_form
             WHERE hf.is_active = true
-            GROUP BY hf.id, hf.nome_formulario, hf.descricao_formulario, hf.categoria, hf.min_respondentes, hf.pontos_base, hf.pontos_recompensa, hf.tempo_estimado, hf.estado, hf.cidade, hf.created_at
+            GROUP BY hf.id, hf.nome_formulario, hf.descricao_formulario, hf.categoria, hf.min_respondentes, hf.pontos_base, hf.pontos_recompensa, hf.tempo_estimado, hf.estado, hf.cidade, hf.faixa_etaria, hf.genero, hf.escolaridade, hf.renda, hf.created_at
             ORDER BY hf.created_at DESC
         """
 
@@ -1041,7 +1053,7 @@ def get_forms():
         for form in forms:
             # [ATUALIZADO] Desempacotando as variáveis na ordem do SELECT
             (form_id, nome_formulario, descricao_formulario, categoria,
-             min_respondentes, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, created_at, total_questions) = form
+             min_respondentes, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, faixa_etaria, genero, escolaridade, renda, created_at, total_questions) = form
 
             # Count real responses for this form
             cur.execute("""
@@ -1064,6 +1076,10 @@ def get_forms():
                 "tempo_estimado": tempo_estimado,       # [NOVO]
                 "state": estado,   # [NOVO] Enviando para o front preencher o filtro de Estado
                 "city": cidade,    # [NOVO] Enviando para o front preencher o filtro de Cidade
+                "faixa_etaria": faixa_etaria,   # [NOVO] Enviando para o front preencher a segmentação
+                "genero": genero,   # [NOVO] Enviando para o front preencher a segmentação
+                "escolaridade": escolaridade,   # [NOVO] Enviando para o front preencher a segmentação
+                "renda": renda,   # [NOVO] Enviando para o front preencher a segmentação
                 "created_at": created_at.isoformat() if created_at else None,
                 "total_questions": total_questions or 0,
                 "responses": response_count,
@@ -1201,10 +1217,10 @@ def get_my_surveys():
         conn = get_connection()
         cur = conn.cursor()
 
-        # [ATUALIZADO] Build query with filters, including estado and cidade
+        # [ATUALIZADO] Build query with filters, including estado, cidade and demographic segmentation
         query = """
             SELECT id, nome_formulario, descricao_formulario, categoria,
-                   min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, id_criador,
+                   min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, faixa_etaria, genero, escolaridade, renda, id_criador,
                    created_at, is_active
             FROM header_formulario
             WHERE id_criador = %s
@@ -1231,7 +1247,7 @@ def get_my_surveys():
         for survey in surveys:
             # [ATUALIZADO] Desempacotando as variáveis
             (survey_id, nome_formulario, descricao_formulario, categoria,
-             min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, id_criador,
+             min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, faixa_etaria, genero, escolaridade, renda, id_criador,
              created_at, is_active) = survey
 
             # Count responses for this survey
@@ -1257,6 +1273,10 @@ def get_my_surveys():
                 "tempo_estimado": tempo_estimado,       # [NOVO]
                 "state": estado,   # [NOVO] Enviando para o front preencher a segmentação
                 "city": cidade,    # [NOVO] Enviando para o front preencher a segmentação
+                "faixa_etaria": faixa_etaria,   # [NOVO] Enviando para o front preencher a segmentação
+                "genero": genero,   # [NOVO] Enviando para o front preencher a segmentação
+                "escolaridade": escolaridade,   # [NOVO] Enviando para o front preencher a segmentação
+                "renda": renda,   # [NOVO] Enviando para o front preencher a segmentação
                 "createdAt": created_at.isoformat() if created_at else None,
                 "source": "created"
             })
@@ -1289,14 +1309,14 @@ def get_form_details(form_id):
         conn = get_connection()
         cur = conn.cursor()
 
-        # [ATUALIZADO] Adicionado estado e cidade no SELECT
+        # [ATUALIZADO] Adicionado estado, cidade e demographic segmentation no SELECT
         cur.execute(
             """
-            SELECT id, nome_formulario, descricao_formulario, categoria, 
-                   min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, 
-                   tempo_estimado, estado, cidade, id_criador,
+            SELECT id, nome_formulario, descricao_formulario, categoria,
+                   min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa,
+                   tempo_estimado, estado, cidade, faixa_etaria, genero, escolaridade, renda, id_criador,
                    created_at, is_active
-            FROM header_formulario 
+            FROM header_formulario
             WHERE id = %s
             """,
             (form_id,)
@@ -1308,9 +1328,9 @@ def get_form_details(form_id):
             return jsonify({"success": False, "message": "Formulário não encontrado"}), 404
 
         # [ATUALIZADO] Desempacotando as novas variáveis na ordem correta do SELECT
-        (form_id_db, nome_formulario, descricao_formulario, categoria, 
-         min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, 
-         tempo_estimado, estado, cidade, id_criador,
+        (form_id_db, nome_formulario, descricao_formulario, categoria,
+         min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa,
+         tempo_estimado, estado, cidade, faixa_etaria, genero, escolaridade, renda, id_criador,
          created_at, is_active) = form
 
         # Count total responses for this form
@@ -1358,6 +1378,10 @@ def get_form_details(form_id):
             "tempo_estimado": tempo_estimado,
             "state": estado,   # [NOVO] Enviando para o front preencher o filtro de Estado
             "city": cidade,    # [NOVO] Enviando para o front preencher o filtro de Cidade
+            "faixa_etaria": faixa_etaria,   # [NOVO] Enviando para o front preencher a segmentação
+            "genero": genero,   # [NOVO] Enviando para o front preencher a segmentação
+            "escolaridade": escolaridade,   # [NOVO] Enviando para o front preencher a segmentação
+            "renda": renda,   # [NOVO] Enviando para o front preencher a segmentação
             "id_criador": id_criador,
             "created_at": created_at.isoformat() if created_at else None,
             "is_active": is_active,
