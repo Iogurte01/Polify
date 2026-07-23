@@ -137,7 +137,9 @@ export function CreateSurvey() {
         tempo_max_dias: 30,
         pontos_base: totalTokens,
         pontos_recompensa: respondentReward,
-        tempo_estimado: estimatedTime
+        tempo_estimado: estimatedTime,
+        estado: segState ? segState.split(" - ")[0] : undefined, // Pega apenas a sigla (ex: "SP")
+        cidade: segCity || undefined
       });
 
       if (!formResult.success) {

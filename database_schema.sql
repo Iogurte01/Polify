@@ -1,8 +1,5 @@
 -- =====================================================
--- POLIFY FINAL DATABASE SCHEMA (ATUALIZADO)
--- =====================================================
--- Consolidated final PostgreSQL schema after applying all SQL files
--- and removing migrations / incremental scripts.
+-- POLIFY FINAL DATABASE SCHEMA
 -- =====================================================
 
 -- =====================================================
@@ -98,9 +95,13 @@ CREATE TABLE header_formulario (
     id_criador INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     pontos_base INTEGER DEFAULT 0 CHECK (pontos_base >= 0),
     
-    -- [NOVAS COLUNAS]
+    -- [NOVAS COLUNAS ANTERIORES]
     pontos_recompensa INTEGER DEFAULT 0 CHECK (pontos_recompensa >= 0),
     tempo_estimado VARCHAR(50),
+    
+    -- [NOVAS COLUNAS DE GEOLOCALIZAÇÃO]
+    estado VARCHAR(10),
+    cidade VARCHAR(100),
     
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -218,6 +219,8 @@ CREATE INDEX idx_purchase_intentions_created ON purchase_intentions(created_at);
 CREATE INDEX idx_header_formulario_criador ON header_formulario(id_criador);
 CREATE INDEX idx_header_formulario_categoria ON header_formulario(categoria);
 CREATE INDEX idx_header_formulario_active ON header_formulario(is_active);
+CREATE INDEX idx_header_formulario_estado ON header_formulario(estado);
+CREATE INDEX idx_header_formulario_cidade ON header_formulario(cidade);
 
 CREATE INDEX idx_perguntas_form_form ON perguntas_form(id_form);
 CREATE INDEX idx_perguntas_form_tipagem ON perguntas_form(tipagem);
@@ -315,9 +318,12 @@ SELECT
     hf.tempo_max_dias,
     hf.pontos_base,
     
-    -- [NOVAS COLUNAS AQUI]
     hf.pontos_recompensa,
     hf.tempo_estimado,
+    
+    -- [NOVAS COLUNAS ADICIONADAS NA VIEW]
+    hf.estado,
+    hf.cidade,
     
     hf.created_at,
     hf.is_active,
@@ -342,3 +348,4 @@ LEFT JOIN header_form_cont hfc ON hf.id = hfc.id_form
 LEFT JOIN perguntas_form pf ON hf.id = pf.id_form
 LEFT JOIN resp_form rf ON pf.id_perg = rf.id_perg
 GROUP BY hf.id, hf.nome_formulario, hf.min_respondentes;
+

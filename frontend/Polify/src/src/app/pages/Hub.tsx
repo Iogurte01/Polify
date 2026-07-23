@@ -63,13 +63,47 @@ export function Hub() {
     });
   };
 
-  const filteredSurveys = surveys.filter((s) => {
+const filteredSurveys = surveys.filter((s) => {
+    // 1. Status ativo
     if (s.status !== "Ativa") return false;
+
+    // 2. Barra de pesquisa (Filtra por título)
     if (searchQuery && !s.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    if (activeCategories.length > 0 && !activeCategories.includes(s.category)) return false;
+
+    // 3. Filtro de Categoria (Dropdown ou Chips)
     if (filters.category && s.category !== filters.category) return false;
-    if (filters.state && s.state && s.state !== filters.state) return false;
-    if (filters.city && s.city && !s.city.toLowerCase().includes(filters.city.toLowerCase())) return false;
+
+    // 4. Filtro de Estado
+    if (filters.state) {
+      if (s.state && s.state !== filters.state) return false;
+      // Se a pesquisa não tem estado definido, tratamos como Geral/Nacional, então ela passa
+    }
+
+    // 5. Filtro de Cidade
+    if (filters.city) {
+      if (s.city && !s.city.toLowerCase().includes(filters.city.toLowerCase())) return false;
+    }
+
+    // 6. Filtro de Tempo Estimado
+    if (filters.time) {
+      const timeValue = parseInt(s.estimatedTime?.replace(/\D/g, "") || "0");
+      
+      if (filters.time === "< 5 min" && timeValue >= 5) return false;
+      if (filters.time === "5–10 min" && (timeValue < 5 || timeValue > 10)) return false;
+      if (filters.time === "10–15 min" && (timeValue < 10 || timeValue > 15)) return false;
+      if (filters.time === "> 15 min" && timeValue <= 15) return false;
+    }
+
+    // 7. Filtro de Recompensa
+    if (filters.reward) {
+      const rewardValue = s.tokenReward || 0;
+      
+      if (filters.reward === "5+ tokens" && rewardValue < 5) return false;
+      if (filters.reward === "8+ tokens" && rewardValue < 8) return false;
+      if (filters.reward === "10+ tokens" && rewardValue < 10) return false;
+      if (filters.reward === "15+ tokens" && rewardValue < 15) return false;
+    }
+
     return true;
   });
 
@@ -144,8 +178,8 @@ export function Hub() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative mb-5">
+{/* Search Bar Única */}
+      <div className="relative mb-4">
         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
@@ -157,25 +191,41 @@ export function Hub() {
         />
       </div>
 
-      {/* Category Tabs */}
-      <div className="flex flex-wrap gap-2 mb-5">
-        {allCategories.map((cat) => {
-          const isActive = cat === "Todas" ? activeCategories.length === 0 : activeCategories.includes(cat);
-          return (
-            <button
-              key={cat}
-              onClick={() => toggleCategory(cat)}
-              className={`px-3.5 py-1.5 rounded-lg transition-colors ${
-                isActive
-                  ? "bg-[#6366f1] text-white"
-                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-[#6366f1]/30"
-              }`}
-              style={{ fontSize: "12px", fontWeight: 500 }}
-            >
-              {cat}
+      {/* Chips de Filtros Ativos (só aparecem se houver algo filtrado) + Botão de Filtros */}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        {hasFilters && (
+          <>
+            {filters.category && (
+              <span className="flex items-center gap-1.5 bg-[#6366f1]/10 border border-[#6366f1]/20 text-[#6366f1] px-3 py-1.5 rounded-lg" style={{ fontSize: "12px", fontWeight: 500 }}>
+                Categoria: {filters.category} <X size={12} className="cursor-pointer hover:text-red-500" onClick={() => setFilters({ category: "" })} />
+              </span>
+            )}
+            {filters.state && (
+              <span className="flex items-center gap-1.5 bg-[#6366f1]/10 border border-[#6366f1]/20 text-[#6366f1] px-3 py-1.5 rounded-lg" style={{ fontSize: "12px", fontWeight: 500 }}>
+                Estado: {filters.state} <X size={12} className="cursor-pointer hover:text-red-500" onClick={() => setFilters({ state: "", city: "" })} />
+              </span>
+            )}
+            {filters.city && (
+              <span className="flex items-center gap-1.5 bg-[#6366f1]/10 border border-[#6366f1]/20 text-[#6366f1] px-3 py-1.5 rounded-lg" style={{ fontSize: "12px", fontWeight: 500 }}>
+                Cidade: {filters.city} <X size={12} className="cursor-pointer hover:text-red-500" onClick={() => setFilters({ city: "" })} />
+              </span>
+            )}
+            {filters.time && (
+              <span className="flex items-center gap-1.5 bg-[#6366f1]/10 border border-[#6366f1]/20 text-[#6366f1] px-3 py-1.5 rounded-lg" style={{ fontSize: "12px", fontWeight: 500 }}>
+                <Clock size={12} /> {filters.time} <X size={12} className="cursor-pointer hover:text-red-500" onClick={() => setFilters({ time: "" })} />
+              </span>
+            )}
+            {filters.reward && (
+              <span className="flex items-center gap-1.5 bg-[#6366f1]/10 border border-[#6366f1]/20 text-[#6366f1] px-3 py-1.5 rounded-lg" style={{ fontSize: "12px", fontWeight: 500 }}>
+                <Coins size={12} /> {filters.reward} <X size={12} className="cursor-pointer hover:text-red-500" onClick={() => setFilters({ reward: "" })} />
+              </span>
+            )}
+            <button onClick={clearFilters} className="text-muted-foreground hover:text-foreground underline ml-1" style={{ fontSize: "12px" }}>
+              Limpar todos
             </button>
-          );
-        })}
+          </>
+        )}
+
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`ml-auto flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border transition-colors ${
@@ -197,7 +247,7 @@ export function Hub() {
 
       {/* Expandable Filters */}
       {showFilters && (
-        <div className="bg-card border border-border rounded-xl p-4 mb-5">
+         <div className="bg-card border border-border rounded-xl p-4 mb-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-muted-foreground" style={{ fontSize: "12px", fontWeight: 500 }}>
               {t("home.filters")} — {filteredSurveys.length} {t("home.results")}

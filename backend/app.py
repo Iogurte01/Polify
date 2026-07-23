@@ -915,11 +915,10 @@ def get_user_progress(user_id):
             conn.close()
 
 
+#cria um formulário
+#key words: Criar - Postar - Publicar - Formulário 
 @app.route("/api/forms", methods=["POST"])
 def create_form():
-    """
-    Create a new survey/form
-    """
     data = request.json
 
     nome_formulario = data.get("nome_formulario")
@@ -929,13 +928,15 @@ def create_form():
     tempo_max_dias = data.get("tempo_max_dias", 30)
     pontos_base = data.get("pontos_base", 10)
     
-    # [NOVO] Capturando os novos campos
-    pontos_recompensa = data.get("pontos_recompensa", pontos_base) # fallback pro pontos_base se nulo
+    pontos_recompensa = data.get("pontos_recompensa", pontos_base)
     tempo_estimado = data.get("tempo_estimado")
+
+    # [ADICIONADO] Capturando estado e cidade enviados pelo frontend
+    estado = data.get("estado")
+    cidade = data.get("city") or data.get("cidade")
 
     id_criador = data.get("id_criador")
 
-    # Validar campos obrigatórios
     if not nome_formulario or not categoria or not id_criador:
         return jsonify({"success": False, "message": "Campos obrigatórios: nome_formulario, categoria, id_criador"}), 400
 
@@ -946,15 +947,15 @@ def create_form():
         conn = get_connection()
         cur = conn.cursor()
 
-        # [ATUALIZADO] Inserir o formulário com os novos campos
+        # [ATUALIZADO] Inserindo estado e cidade na tabela header_formulario
         cur.execute(
             """
             INSERT INTO header_formulario 
-            (nome_formulario, descricao_formulario, categoria, min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, id_criador)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            (nome_formulario, descricao_formulario, categoria, min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, id_criador)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, created_at
             """,
-            (nome_formulario, descricao_formulario, categoria, min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, id_criador)
+            (nome_formulario, descricao_formulario, categoria, min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, id_criador)
         )
 
         result = cur.fetchone()
@@ -962,7 +963,6 @@ def create_form():
 
         conn.commit()
 
-        # Retornar o formulário criado
         form_data = {
             "id": form_id,
             "nome_formulario": nome_formulario,
@@ -971,8 +971,10 @@ def create_form():
             "min_respondentes": min_respondentes,
             "tempo_max_dias": tempo_max_dias,
             "pontos_base": pontos_base,
-            "pontos_recompensa": pontos_recompensa, # [NOVO]
-            "tempo_estimado": tempo_estimado,       # [NOVO]
+            "pontos_recompensa": pontos_recompensa,
+            "tempo_estimado": tempo_estimado,
+            "state": estado,
+            "city": cidade,
             "id_criador": id_criador,
             "created_at": created_at.isoformat() if created_at else None,
             "is_active": True
@@ -985,7 +987,8 @@ def create_form():
         }), 201
 
     except Exception as e:
-        conn.rollback()
+        if conn:
+            conn.rollback()
         print(f"ERROR: {str(e)}")
         return jsonify({"success": False, "message": f"Erro ao criar formulário: {str(e)}"}), 500
 
@@ -1100,6 +1103,7 @@ def create_question():
     pergunta = data.get("pergunta")
     alternativa = data.get("alternativa", [])
     tipagem = data.get("tipagem")
+
 
     # Validar campos obrigatórios
     if not id_form or not num_pergunta or not pergunta or not tipagem:
@@ -1279,11 +1283,12 @@ def get_form_details(form_id):
         conn = get_connection()
         cur = conn.cursor()
 
-        # [ATUALIZADO] Get form details
+        # [ATUALIZADO] Adicionado estado e cidade no SELECT
         cur.execute(
             """
             SELECT id, nome_formulario, descricao_formulario, categoria, 
-                   min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, id_criador,
+                   min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, 
+                   tempo_estimado, estado, cidade, id_criador,
                    created_at, is_active
             FROM header_formulario 
             WHERE id = %s
@@ -1296,9 +1301,10 @@ def get_form_details(form_id):
         if not form:
             return jsonify({"success": False, "message": "Formulário não encontrado"}), 404
 
-        # [ATUALIZADO]
+        # [ATUALIZADO] Desempacotando as novas variáveis na ordem correta do SELECT
         (form_id_db, nome_formulario, descricao_formulario, categoria, 
-         min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, id_criador,
+         min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, 
+         tempo_estimado, estado, cidade, id_criador,
          created_at, is_active) = form
 
         # Count total responses for this form
@@ -1342,8 +1348,10 @@ def get_form_details(form_id):
             "min_respondentes": min_respondentes,
             "tempo_max_dias": tempo_max_dias,
             "pontos_base": pontos_base,
-            "pontos_recompensa": pontos_recompensa, # [NOVO]
-            "tempo_estimado": tempo_estimado,       # [NOVO]
+            "pontos_recompensa": pontos_recompensa,
+            "tempo_estimado": tempo_estimado,
+            "state": estado,   # [NOVO] Enviando para o front preencher o filtro de Estado
+            "city": cidade,    # [NOVO] Enviando para o front preencher o filtro de Cidade
             "id_criador": id_criador,
             "created_at": created_at.isoformat() if created_at else None,
             "is_active": is_active,

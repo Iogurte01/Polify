@@ -81,13 +81,17 @@ interface AppContextType extends AppState {
   fetchFormDetails: (formId: string) => Promise<{ success: boolean; form?: any; message?: string }>;
   fetchMySurveys: (status?: string, category?: string) => Promise<boolean>;
   createForm: (formData: {
-    nome_formulario: string;
-    descricao_formulario?: string;
-    categoria: string;
-    min_respondentes?: number;
-    tempo_max_dias?: number;
-    pontos_base?: number;
-  }) => Promise<{ success: boolean; form?: any; message?: string }>;
+      nome_formulario: string;
+      descricao_formulario?: string;
+      categoria: string;
+      min_respondentes?: number;
+      tempo_max_dias?: number;
+      pontos_base?: number;
+      pontos_recompensa?: number;
+      tempo_estimado?: string;
+      estado?: string; // [NOVO]
+      cidade?: string; // [NOVO]
+    }) => Promise<{ success: boolean; form?: any; message?: string }>;
   setTheme: (theme: "light" | "dark") => void;
   setLang: (lang: Lang) => void;
   setFilters: (filters: Partial<AppState["filters"]>) => void;
@@ -480,7 +484,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
 
-  // Create form in backend
+// Create form in backend
   const createForm = useCallback(async (formData: {
     nome_formulario: string;
     descricao_formulario?: string;
@@ -490,6 +494,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pontos_base?: number;
     pontos_recompensa?: number;
     tempo_estimado?: string;
+    estado?: string;
+    cidade?: string;
   }) => {
     try {
       const response = await fetch(`${URL_backend}/api/forms`, {
@@ -499,17 +505,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           ...formData,
-          id_criador: auth.user?.id || currentUser.id, // Use logged-in user ID with same fallback as fetchMySurveys
+          id_criador: auth.user?.id || currentUser.id,
           min_respondentes: formData.min_respondentes || 50,
           tempo_max_dias: formData.tempo_max_dias || 30,
-          pontos_base: formData.pontos_base || 10
+          pontos_base: formData.pontos_base || 10,
+          // Garantindo o envio explícito para o backend mapear
+          estado: formData.estado,
+          city: formData.cidade 
         })
       });
 
       const data = await response.json();
 
       if (data.success) {
-        // Refresh forms list to include the new form
         await fetchForms();
         return { success: true, form: data.form };
       }
@@ -517,25 +525,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return { success: false, message: data.message || "Erro ao criar formulário" };
     } catch (error) {
       console.error("Erro ao criar formulário:", error);
-      
-      // Log detalhado para diagnóstico
-      if (error instanceof Response) {
-        console.error("Status:", error.status);
-        console.error("StatusText:", error.statusText);
-      } else if (error instanceof Error) {
-        console.error("Error message:", error.message);
-        console.error("Error stack:", error.stack);
-      }
-      
-      // Manter mensagem amigável para o usuário
-      let userMessage = "Erro ao conectar com o servidor";
-      if (error instanceof Response && error.status === 404) {
-        userMessage = "Serviço indisponível. Tente novamente.";
-      } else if (error instanceof Error && error.message.includes("Failed to fetch")) {
-        userMessage = "Erro de conexão. Verifique sua internet.";
-      }
-      
-      return { success: false, message: userMessage };
+      return { success: false, message: "Erro ao conectar com o servidor" };
     }
   }, [auth.user?.id, fetchForms]);
 
