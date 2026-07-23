@@ -1201,12 +1201,12 @@ def get_my_surveys():
         conn = get_connection()
         cur = conn.cursor()
 
-        # [ATUALIZADO] Build query with filters
+        # [ATUALIZADO] Build query with filters, including estado and cidade
         query = """
-            SELECT id, nome_formulario, descricao_formulario, categoria, 
-                   min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, id_criador,
+            SELECT id, nome_formulario, descricao_formulario, categoria,
+                   min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, id_criador,
                    created_at, is_active
-            FROM header_formulario 
+            FROM header_formulario
             WHERE id_criador = %s
         """
         params = [user_id]
@@ -1230,8 +1230,8 @@ def get_my_surveys():
         surveys_list = []
         for survey in surveys:
             # [ATUALIZADO] Desempacotando as variáveis
-            (survey_id, nome_formulario, descricao_formulario, categoria, 
-             min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, id_criador,
+            (survey_id, nome_formulario, descricao_formulario, categoria,
+             min_respondentes, tempo_max_dias, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, id_criador,
              created_at, is_active) = survey
 
             # Count responses for this survey
@@ -1255,6 +1255,8 @@ def get_my_surveys():
                 "pontos_base": pontos_base,
                 "pontos_recompensa": pontos_recompensa, # [NOVO]
                 "tempo_estimado": tempo_estimado,       # [NOVO]
+                "state": estado,   # [NOVO] Enviando para o front preencher a segmentação
+                "city": cidade,    # [NOVO] Enviando para o front preencher a segmentação
                 "createdAt": created_at.isoformat() if created_at else None,
                 "source": "created"
             })

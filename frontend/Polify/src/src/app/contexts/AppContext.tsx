@@ -301,6 +301,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return progressPercent >= 40 && responses >= 3;
   };
 
+  // Generate segmentation label based on state and city
+  const generateSegmentation = (state: string | undefined, city: string | undefined): string => {
+    if (!state && !city) return "Geral";
+    if (state && city) return `${city}, ${state}`;
+    if (city) return city;
+    if (state) return state;
+    return "Geral";
+  };
+
   const fetchUserProgress = useCallback(async (userId: number) => {
     try {
       const response = await fetch(`${URL_backend}/api/users/${userId}/progress`, {
@@ -392,7 +401,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           eligible: true,
           trending: calculateTrending(form.responses || 0, form.min_respondentes || 50),
           boosted: Math.random() > 0.8,
-          segmentation: "Geral",
+          segmentation: generateSegmentation(form.state, form.city),
           creator: form.criador_nome,
           state: form.state || "",
           city: form.city || "",
@@ -444,7 +453,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           eligible: true,
           trending: calculateTrending(survey.responses ?? survey.total_responses ?? 0, survey.targetResponses ?? survey.min_respondentes ?? 50),
           boosted: Math.random() > 0.8,
-          segmentation: survey.segmentation || "Geral",
+          segmentation: generateSegmentation(survey.state, survey.city),
           createdAt: new Date(survey.createdAt || survey.created_at).toLocaleDateString('pt-BR'),
           source: survey.source || "created",
           avgQuality: null,
