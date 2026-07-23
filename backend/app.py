@@ -1011,23 +1011,25 @@ def get_forms():
         conn = get_connection()
         cur = conn.cursor()
 
-        # [ATUALIZADO] Get all active forms with question count
+        # [ATUALIZADO] Get all active forms with question count, estado and cidade
         query = """
-            SELECT 
-                hf.id, 
-                hf.nome_formulario, 
-                hf.descricao_formulario, 
-                hf.categoria, 
-                hf.min_respondentes, 
-                hf.pontos_base, 
-                hf.pontos_recompensa, 
+            SELECT
+                hf.id,
+                hf.nome_formulario,
+                hf.descricao_formulario,
+                hf.categoria,
+                hf.min_respondentes,
+                hf.pontos_base,
+                hf.pontos_recompensa,
                 hf.tempo_estimado,
+                hf.estado,
+                hf.cidade,
                 hf.created_at,
                 COUNT(pf.id_perg) as total_questions
             FROM header_formulario hf
             LEFT JOIN perguntas_form pf ON hf.id = pf.id_form
             WHERE hf.is_active = true
-            GROUP BY hf.id, hf.nome_formulario, hf.descricao_formulario, hf.categoria, hf.min_respondentes, hf.pontos_base, hf.pontos_recompensa, hf.tempo_estimado, hf.created_at
+            GROUP BY hf.id, hf.nome_formulario, hf.descricao_formulario, hf.categoria, hf.min_respondentes, hf.pontos_base, hf.pontos_recompensa, hf.tempo_estimado, hf.estado, hf.cidade, hf.created_at
             ORDER BY hf.created_at DESC
         """
 
@@ -1038,8 +1040,8 @@ def get_forms():
         forms_list = []
         for form in forms:
             # [ATUALIZADO] Desempacotando as variáveis na ordem do SELECT
-            (form_id, nome_formulario, descricao_formulario, categoria, 
-             min_respondentes, pontos_base, pontos_recompensa, tempo_estimado, created_at, total_questions) = form
+            (form_id, nome_formulario, descricao_formulario, categoria,
+             min_respondentes, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, created_at, total_questions) = form
 
             # Count real responses for this form
             cur.execute("""
@@ -1060,10 +1062,12 @@ def get_forms():
                 "pontos_base": pontos_base,
                 "pontos_recompensa": pontos_recompensa, # [NOVO]
                 "tempo_estimado": tempo_estimado,       # [NOVO]
+                "state": estado,   # [NOVO] Enviando para o front preencher o filtro de Estado
+                "city": cidade,    # [NOVO] Enviando para o front preencher o filtro de Cidade
                 "created_at": created_at.isoformat() if created_at else None,
                 "total_questions": total_questions or 0,
                 "responses": response_count,
-                "criador_nome": "Anônimo" 
+                "criador_nome": "Anônimo"
             })
 
         return jsonify({

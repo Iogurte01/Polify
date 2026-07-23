@@ -394,6 +394,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           boosted: Math.random() > 0.8,
           segmentation: "Geral",
           creator: form.criador_nome,
+          state: form.state || "",
+          city: form.city || "",
           createdAt: new Date(form.created_at).toLocaleDateString('pt-BR')
         }));
 
