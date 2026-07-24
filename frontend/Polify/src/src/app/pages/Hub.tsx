@@ -307,6 +307,9 @@ const filteredSurveys = surveys.filter((s) => {
                       </span>
                     )}
                   </div>
+                  <span className="bg-[#6366f1]/10 text-[#6366f1] px-2 py-0.5 rounded-md inline-block mb-2" style={{ fontSize: "10px", fontWeight: 600 }}>
+                    {survey.category}
+                  </span>
                   <h4 className="text-foreground mb-2" style={{ fontSize: "14px" }}>{survey.title}</h4>
                   <div className="flex items-center justify-between">
                     <span className="text-[#6366f1]" style={{ fontSize: "12px", fontWeight: 500 }}>

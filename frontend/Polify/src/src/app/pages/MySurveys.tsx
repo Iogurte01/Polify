@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router";
 import {
-  FolderOpen, MoreHorizontal, BarChart3, Trash2, PlusCircle, Zap, Star, Copy,
+  FolderOpen, MoreHorizontal, BarChart3, Trash2, PlusCircle, Zap, Star,
   Download, FileText, Users, Clock, CheckCircle, ArrowLeft, ShoppingCart, Shield, Coins,
 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -28,7 +28,7 @@ type ViewTab = "created" | "marketplace";
 
 export function MySurveys() {
   const navigate = useNavigate();
-  const { mySurveys, deleteSurvey, duplicateSurvey, boostSurvey, respondentRatings, rateRespondent, theme, t, fetchMySurveys } = useApp();
+  const { mySurveys, deleteSurvey, boostSurvey, respondentRatings, rateRespondent, theme, t, fetchMySurveys } = useApp();
   const [searchQuery] = useState("");
   const [statusFilter] = useState("Todas");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -83,15 +83,10 @@ export function MySurveys() {
     }
   };
 
-  const handleDuplicate = (id: string) => {
-    duplicateSurvey(id);
-    toast.success(t("mySurveys.duplicateSuccess"));
-  };
-
   const handleBoost = async (id: string) => {
     const survey = mySurveys.find(s => s.id === id);
     if (!survey) return;
-    if (survey.responses < 20) { toast.error(t("boost.locked")); setBoostModal(null); return; }
+    if (survey.responses < 3) { toast.error(t("boost.locked")); setBoostModal(null); return; }
     const success = await boostSurvey(id);
     if (success) { toast.success(t("boost.success")); } else { toast.error(t("create.error.balance")); }
     setBoostModal(null);
@@ -381,11 +376,6 @@ export function MySurveys() {
                         <DropdownMenuItem onClick={() => setReportModal(survey.id)} className="flex items-center gap-2 cursor-pointer" style={{ fontSize: "13px" }}>
                           <BarChart3 size={14} /> {t("mySurveys.report")}
                         </DropdownMenuItem>
-                        {survey.source !== "marketplace" && (
-                          <DropdownMenuItem onClick={() => handleDuplicate(survey.id)} className="flex items-center gap-2 cursor-pointer" style={{ fontSize: "13px" }}>
-                            <Copy size={14} /> {t("mySurveys.duplicate")}
-                          </DropdownMenuItem>
-                        )}
                         {survey.status === "Ativa" && survey.source !== "marketplace" && (
                           <>
                             <DropdownMenuItem onClick={() => setRateModal(survey.id)} className="flex items-center gap-2 cursor-pointer" style={{ fontSize: "13px" }}>
