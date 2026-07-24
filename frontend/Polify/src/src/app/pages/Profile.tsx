@@ -45,9 +45,9 @@ export function Profile() {
   const handleSave = () => { updateDemographics(editDraft); setEditing(false); toast.success(t("profile.savedSuccess")); };
   const handleCancel = () => { setEditDraft({ ...demographics }); setEditing(false); };
   const handleLogout = () => { logout(); navigate("/login"); };
-  const handleDeleteAccount = () => { if (deleteConfirm !== "EXCLUIR") return; deleteAccount(); toast.success(t("profile.deleteSuccess")); navigate("/login"); };
+  const handleDeleteAccount = async () => { if (deleteConfirm !== "EXCLUIR") return; await deleteAccount(); toast.success(t("profile.deleteSuccess")); navigate("/login"); };
   const handleDownloadData = () => { downloadUserData(); toast.success("Dados exportados com sucesso!"); };
-  const handleRequestDeletion = () => { requestDataDeletion(); toast.success("Solicitação de exclusão enviada!"); setDeletionConfirmModal(false); };
+  const handleRequestDeletion = async () => { await requestDataDeletion(); toast.success("Solicitação de exclusão enviada!"); setDeletionConfirmModal(false); };
 
   const userInitials = auth.user?.name ? auth.user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "U";
 

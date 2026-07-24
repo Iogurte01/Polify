@@ -108,14 +108,14 @@ interface AppContextType extends AppState {
   deleteSurvey: (id: string) => Promise<boolean>;
   duplicateSurvey: (id: string) => void;
   boostSurvey: (id: string) => Promise<boolean>;
-  deleteAccount: () => void;
+  deleteAccount: () => Promise<void>;
   changePassword: (currentPass: string, newPass: string) => Promise<boolean>;
   rateRespondent: (respondentId: string, answers: Record<string, boolean>) => void;
   updateDemographics: (data: Partial<Demographics>) => void;
   completeOnboarding: () => void;
   purchaseInsight: (id: string, price: number) => Promise<boolean>;
   addMarketplaceSurvey: (title: string, id: string) => void;
-  requestDataDeletion: () => void;
+  requestDataDeletion: () => Promise<void>;
   downloadUserData: () => void;
   userLevel: GamificationLevel;
 }
@@ -916,10 +916,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return await spendTokens(10, `Boost: ${survey.title}`);
   }, [mySurveysList, spendTokens]);
 
-  const deleteAccount = useCallback(() => {
-    localStorage.clear();
-    setAuth({ isAuthenticated: false, user: null });
-  }, []);
+  const deleteAccount = useCallback(async () => {
+    try {
+      const userId = auth.user?.id || currentUser.id;
+      const response = await fetch(`${URL_backend}/api/users/${userId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await response.json();
+      if (data.success) {
+        localStorage.clear();
+        setAuth({ isAuthenticated: false, user: null });
+      }
+    } catch (error) {
+      console.error("Error deleting account:", error);
+    }
+  }, [auth.user?.id]);
 
   const changePassword = useCallback(async (currentPass: string, newPass: string): Promise<boolean> => {
     const userId = auth.user?.id || currentUser.id;
@@ -992,7 +1004,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // LGPD
-  const requestDataDeletion = useCallback(() => { setLgpdDeletionStatus("pending"); }, []);
+  const requestDataDeletion = useCallback(async () => {
+    try {
+      const userId = auth.user?.id || currentUser.id;
+      const response = await fetch(`${URL_backend}/api/users/${userId}/data`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setLgpdDeletionStatus("pending");
+      }
+    } catch (error) {
+      console.error("Error requesting data deletion:", error);
+    }
+  }, [auth.user?.id]);
 
   const downloadUserData = useCallback(() => {
     const userData = {

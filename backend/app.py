@@ -1101,7 +1101,124 @@ def get_forms():
         if conn:
             conn.close()
 
+#Delet de conta
+@app.route("/api/users/<int:user_id>", methods=["DELETE"])
+def delete_user_account(user_id):
+    """
+    Delete a user account and associated data
+    Method: DELETE
+    URL Param: user_id (required)
+    Returns: Success message
+    """
+    conn = None
+    cur = None
 
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Check if user exists
+        cur.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+        user_exists = cur.fetchone()
+
+        if not user_exists:
+            return jsonify({"success": False, "message": "Usuário não encontrado"}), 404
+
+        # Delete the user (foreign key cascades or related tables should be handled by DB or explicit deletes if needed)
+        cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Conta deletada com sucesso"
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": f"Erro ao deletar conta: {str(e)}"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+#Delete de dados associados à conta
+@app.route("/api/users/<int:user_id>/data", methods=["DELETE"])
+def delete_user_data(user_id):
+    """
+    Delete all user data (surveys, responses, progress, token balance, intentions, and account)
+    Method: DELETE
+    URL Param: user_id (required)
+    Returns: Success message
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Check if user exists
+        cur.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+        user_exists = cur.fetchone()
+
+        if not user_exists:
+            return jsonify({"success": False, "message": "Usuário não encontrado"}), 404
+
+        # Delete related data in proper order to respect foreign keys if cascading isn't fully configured
+        # 1. Delete user responses to surveys
+        cur.execute("DELETE FROM resp_form WHERE id_user = %s", (user_id,))
+
+        # 2. Delete user form participation history
+        cur.execute("DELETE FROM header_form_cont WHERE id_user = %s", (user_id,))
+
+        # 3. Delete user progress data
+        cur.execute("DELETE FROM user_progress WHERE user_id = %s", (user_id,))
+
+        # 4. Delete token balance history
+        cur.execute("DELETE FROM token_balance WHERE user_id = %s", (user_id,))
+
+        # 5. Delete purchase intentions
+        cur.execute("DELETE FROM purchase_intentions WHERE user_id = %s", (user_id,))
+
+        # 6. Delete password reset tokens associated with the user's email
+        cur.execute("DELETE FROM password_reset_tokens WHERE user_id = %s", (user_id,))
+
+        # 7. Delete forms created by the user (and their associated questions via cascade or explicit deletion if needed)
+        # Note: If questions or headers need manual cleanup because of foreign keys without CASCADE:
+        cur.execute("SELECT id FROM header_formulario WHERE id_criador = %s", (user_id,))
+        user_forms = cur.fetchall()
+        for form in user_forms:
+            form_id = form[0]
+            cur.execute("DELETE FROM perguntas_form WHERE id_form = %s", (form_id,))
+        
+        cur.execute("DELETE FROM header_formulario WHERE id_criador = %s", (user_id,))
+
+        # 8. Finally, delete the user account itself
+        cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Todos os dados e a conta do usuário foram apagados com sucesso."
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": f"Erro ao apagar dados do usuário: {str(e)}"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+            
 @app.route("/api/questions", methods=["POST"])
 def create_question():
     """

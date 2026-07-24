@@ -86,7 +86,7 @@ export function MySurveys() {
   const handleBoost = async (id: string) => {
     const survey = mySurveys.find(s => s.id === id);
     if (!survey) return;
-    if (survey.responses < 3) { toast.error(t("boost.locked")); setBoostModal(null); return; }
+    if (survey.responses < 5) { toast.error(t("boost.locked")); setBoostModal(null); return; }
     const success = await boostSurvey(id);
     if (success) { toast.success(t("boost.success")); } else { toast.error(t("create.error.balance")); }
     setBoostModal(null);

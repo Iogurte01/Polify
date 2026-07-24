@@ -135,10 +135,6 @@ export function Onboarding() {
             )}
           </div>
         </div>
-
-        <p className="text-center text-muted-foreground mt-4" style={{ fontSize: "11px" }}>
-          Ao continuar, você concorda com nossa Política de Privacidade e Termos de Uso (LGPD).
-        </p>
       </div>
     </div>
   );

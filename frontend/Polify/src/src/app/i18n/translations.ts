@@ -114,7 +114,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "create.averageTime": "Tempo médio",
     "create.boost": "Boost",
     "create.boostLocked":
-      "Disponível após 20 respostas orgânicas. Destaque sua pesquisa no feed.",
+      "Disponível após 5 respostas orgânicas. Destaque sua pesquisa no feed.",
     "create.publish": "Publicar Pesquisa",
     "create.publishNote":
       "O custo total de {cost} tokens será debitado ao publicar. A pesquisa será revisada antes de ir ao ar.",
@@ -342,7 +342,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "boost.rule":
       "O boost envia sua pesquisa apenas para respondentes com média ≥ 4 estrelas.",
     "boost.locked":
-      "Boost bloqueado: é necessário ter pelo menos 20 respostas orgânicas.",
+      "Boost bloqueado: é necessário ter pelo menos 05 respostas orgânicas.",
     "boost.cost": "Custo do Boost: 10 tokens",
     "boost.confirm": "Confirmar ativação do Boost?",
     "boost.success": "Boost ativado com sucesso!",
@@ -684,7 +684,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "boost.rule":
       "Boost sends your survey only to respondents with ≥ 4 star average.",
     "boost.locked":
-      "Boost locked: at least 20 organic responses required.",
+      "Boost locked: at least 05 organic responses required.",
     "boost.cost": "Boost cost: 10 tokens",
     "boost.confirm": "Confirm Boost activation?",
     "boost.success": "Boost activated successfully!",
@@ -1027,7 +1027,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "boost.rule":
       "El boost envía tu encuesta solo a respondentes con promedio ≥ 4 estrellas.",
     "boost.locked":
-      "Boost bloqueado: se necesitan al menos 20 respuestas orgánicas.",
+      "Boost bloqueado: se necesitan al menos 05 respuestas orgánicas.",
     "boost.cost": "Costo del Boost: 10 tokens",
     "boost.confirm": "¿Confirmar activación del Boost?",
     "boost.success": "¡Boost activado con éxito!",
