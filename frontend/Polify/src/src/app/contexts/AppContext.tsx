@@ -423,7 +423,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           creator: form.criador_nome,
           state: form.state || "",
           city: form.city || "",
-          createdAt: new Date(form.created_at).toLocaleDateString('pt-BR')
+          createdAt: new Date(form.created_at).toLocaleDateString('pt-BR'),
+          id_criador: form.id_criador
         }));
 
         setSurveys(transformedSurveys);

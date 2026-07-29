@@ -15,7 +15,7 @@ export function Hub() {
   const navigate = useNavigate();
   const {
     surveys, tokenBalance, answeredSurveys, xpTotal, xpRange, xpToNextLevel, xpProgressPercent, userLevel,
-    filters, setFilters, clearFilters, activeFilterCount, t, fetchForms,
+    filters, setFilters, clearFilters, activeFilterCount, t, fetchForms, auth,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -350,7 +350,14 @@ const filteredSurveys = surveys.filter((s) => {
       {!loading && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {filteredSurveys.map((survey) => (
-            <SurveyCard key={survey.id} survey={survey} answered={answeredSurveys.includes(survey.id)} t={t} navigate={navigate} />
+            <SurveyCard 
+              key={survey.id} 
+              survey={survey} 
+              answered={answeredSurveys.includes(survey.id)} 
+              isOwnSurvey={survey.id_criador === auth.user?.id}
+              t={t} 
+              navigate={navigate} 
+            />
           ))}
         </div>
       )}
@@ -373,18 +380,23 @@ function FilterSelect({ label, value, onChange, options, disabled }: { label: st
   );
 }
 
-function SurveyCard({ survey, answered, t, navigate }: { survey: Survey; answered: boolean; t: (k: string) => string; navigate: (p: string) => void }) {
+function SurveyCard({ survey, answered, isOwnSurvey, t, navigate }: { survey: Survey; answered: boolean; isOwnSurvey: boolean; t: (k: string) => string; navigate: (p: string) => void }) {
   const progressPercent = Math.round((survey.responses / survey.targetResponses) * 100);
 
   return (
     <div className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow relative group">
-      {survey.trending && (
+      {isOwnSurvey && (
+        <div className="absolute top-4 right-4 flex items-center gap-1 bg-[#6366f1]/10 text-[#6366f1] px-2.5 py-1 rounded-full" style={{ fontSize: "11px", fontWeight: 600 }}>
+          Sua pesquisa
+        </div>
+      )}
+      {!isOwnSurvey && survey.trending && (
         <div className="absolute top-4 right-4 flex items-center gap-1 bg-[#f97316]/10 text-[#f97316] px-2.5 py-1 rounded-full" style={{ fontSize: "11px", fontWeight: 600 }}>
           <TrendingUp size={11} />
           Em Tendência
         </div>
       )}
-      {!survey.trending && survey.boosted && (
+      {!isOwnSurvey && !survey.trending && survey.boosted && (
         <div className="absolute top-4 right-4 flex items-center gap-1 bg-[#fef3c7] dark:bg-[#92400e]/20 text-[#92400e] dark:text-[#fbbf24] px-2.5 py-1 rounded-full" style={{ fontSize: "11px", fontWeight: 600 }}>
           <Sparkles size={11} />
           {t("home.featured")}
@@ -426,7 +438,11 @@ function SurveyCard({ survey, answered, t, navigate }: { survey: Survey; answere
       </div>
 
       <div className="flex items-center justify-between">
-        {answered ? (
+        {isOwnSurvey ? (
+          <span className="flex items-center gap-1.5 text-[#6366f1]" style={{ fontSize: "12px", fontWeight: 500 }}>
+            <CheckCircle2 size={14} /> Sua pesquisa
+          </span>
+        ) : answered ? (
           <span className="flex items-center gap-1.5 text-emerald-600" style={{ fontSize: "12px", fontWeight: 500 }}>
             <Check size={14} /> Respondida
           </span>
@@ -441,15 +457,15 @@ function SurveyCard({ survey, answered, t, navigate }: { survey: Survey; answere
         )}
         <button
           className={`px-4 py-2 rounded-lg transition-colors ${
-            answered ? "bg-secondary text-muted-foreground cursor-not-allowed"
+            isOwnSurvey || answered ? "bg-secondary text-muted-foreground cursor-not-allowed"
             : survey.eligible ? "bg-[#6366f1] hover:bg-[#5558e6] text-white"
             : "bg-secondary text-muted-foreground cursor-not-allowed"
           }`}
           style={{ fontSize: "13px", fontWeight: 500 }}
-          disabled={!survey.eligible || answered}
-          onClick={() => navigate(`/responder/${survey.id}`)}
+          disabled={isOwnSurvey || !survey.eligible || answered}
+          onClick={() => !isOwnSurvey && navigate(`/responder/${survey.id}`)}
         >
-          {answered ? "Respondida" : t("home.respond")}
+          {isOwnSurvey ? "Sua pesquisa" : answered ? "Respondida" : t("home.respond")}
         </button>
       </div>
     </div>

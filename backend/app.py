@@ -1036,12 +1036,13 @@ def get_forms():
                 hf.genero,
                 hf.escolaridade,
                 hf.renda,
+                hf.id_criador,
                 hf.created_at,
                 COUNT(pf.id_perg) as total_questions
             FROM header_formulario hf
             LEFT JOIN perguntas_form pf ON hf.id = pf.id_form
             WHERE hf.is_active = true
-            GROUP BY hf.id, hf.nome_formulario, hf.descricao_formulario, hf.categoria, hf.min_respondentes, hf.pontos_base, hf.pontos_recompensa, hf.tempo_estimado, hf.estado, hf.cidade, hf.faixa_etaria, hf.genero, hf.escolaridade, hf.renda, hf.created_at
+            GROUP BY hf.id, hf.nome_formulario, hf.descricao_formulario, hf.categoria, hf.min_respondentes, hf.pontos_base, hf.pontos_recompensa, hf.tempo_estimado, hf.estado, hf.cidade, hf.faixa_etaria, hf.genero, hf.escolaridade, hf.renda, hf.id_criador, hf.created_at
             ORDER BY hf.created_at DESC
         """
 
@@ -1053,7 +1054,7 @@ def get_forms():
         for form in forms:
             # [ATUALIZADO] Desempacotando as variáveis na ordem do SELECT
             (form_id, nome_formulario, descricao_formulario, categoria,
-             min_respondentes, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, faixa_etaria, genero, escolaridade, renda, created_at, total_questions) = form
+             min_respondentes, pontos_base, pontos_recompensa, tempo_estimado, estado, cidade, faixa_etaria, genero, escolaridade, renda, id_criador, created_at, total_questions) = form
 
             # Count real responses for this form
             cur.execute("""
@@ -1080,6 +1081,7 @@ def get_forms():
                 "genero": genero,   # [NOVO] Enviando para o front preencher a segmentação
                 "escolaridade": escolaridade,   # [NOVO] Enviando para o front preencher a segmentação
                 "renda": renda,   # [NOVO] Enviando para o front preencher a segmentação
+                "id_criador": id_criador,   # [NOVO] Enviando para o front identificar criador
                 "created_at": created_at.isoformat() if created_at else None,
                 "total_questions": total_questions or 0,
                 "responses": response_count,
@@ -1450,6 +1452,14 @@ def get_form_details(form_id):
          tempo_estimado, estado, cidade, faixa_etaria, genero, escolaridade, renda, id_criador,
          created_at, is_active) = form
 
+        # Buscar nome do criador
+        criador_nome = "Anônimo"
+        if id_criador:
+            cur.execute("SELECT nome || ' ' || COALESCE(sobrenome, '') FROM users WHERE id = %s", (id_criador,))
+            criador_row = cur.fetchone()
+            if criador_row and criador_row[0]:
+                criador_nome = criador_row[0].strip()
+
         # Count total responses for this form
         cur.execute("""
             SELECT COUNT(DISTINCT rf.id_user) as response_count
@@ -1500,6 +1510,7 @@ def get_form_details(form_id):
             "escolaridade": escolaridade,   # [NOVO] Enviando para o front preencher a segmentação
             "renda": renda,   # [NOVO] Enviando para o front preencher a segmentação
             "id_criador": id_criador,
+            "criador_nome": criador_nome,
             "created_at": created_at.isoformat() if created_at else None,
             "is_active": is_active,
             "total_responses": total_responses,
@@ -1769,13 +1780,18 @@ def save_responses():
                 return jsonify({"success": False, "message": "Não foi possível identificar o formulário da resposta"}), 400
             survey_id = survey_row[0]
 
-        # Validar formulário existe e buscar pontos_recompensa
-        cur.execute("SELECT id, pontos_recompensa FROM header_formulario WHERE id = %s", (survey_id,))
+        # Validar formulário existe e buscar pontos_recompensa e id_criador
+        cur.execute("SELECT id, pontos_recompensa, id_criador FROM header_formulario WHERE id = %s", (survey_id,))
         survey_exists = cur.fetchone()
         if not survey_exists:
             return jsonify({"success": False, "message": "Formulário não encontrado"}), 404
         
         pontos_recompensa = survey_exists[1] if survey_exists[1] is not None else 0
+        id_criador = survey_exists[2]
+        
+        # Verificar se o usuário é o criador da pesquisa
+        if id_user == id_criador:
+            return jsonify({"success": False, "message": "Você não pode responder à sua própria pesquisa"}), 403
 
         # Carregar perguntas do formulário e validar contra o payload
         cur.execute(

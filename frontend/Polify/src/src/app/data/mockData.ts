@@ -198,6 +198,7 @@ export interface Survey {
   city?: string;
   trending?: boolean;
   trendGrowth?: string;
+  id_criador?: number;
 }
 
 export const surveys: Survey[] = [

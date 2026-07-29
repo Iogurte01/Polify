@@ -216,7 +216,6 @@ export function AnswerSurvey() {
   const q = questions[currentQ];
 
   if (!started) {
-    const estimatedMinutes = Math.max(5, questions.length * 2);
     return (
       <div className="max-w-[800px] mx-auto px-8 py-8">
         <button onClick={() => navigate("/")} className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground mb-6 transition-colors">
@@ -232,11 +231,11 @@ export function AnswerSurvey() {
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Clock size={14} />
-              {estimatedMinutes} min
+              {formDetails.tempo_estimado || `${Math.max(5, questions.length * 2)} min`}
             </div>
             <div className="flex items-center gap-1.5">
               <Coins size={14} />
-              {formDetails.pontos_base || 10} tokens
+              {formDetails.pontos_recompensa || formDetails.pontos_base || 10} tokens
             </div>
             <div className="flex items-center gap-1.5">
               <span>{formDetails.questions?.length || 0} perguntas</span>

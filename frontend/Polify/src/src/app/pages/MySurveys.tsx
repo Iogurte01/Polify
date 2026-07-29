@@ -398,10 +398,9 @@ export function MySurveys() {
             <button onClick={handleExportPDF} className="flex items-center gap-2 bg-[#6366f1] hover:bg-[#5558e6] text-white px-4 py-2.5 rounded-lg transition-colors" style={{ fontSize: "13px", fontWeight: 500 }}><Download size={14} />{t("report.exportPDF")}</button>
           </div>
         </div>
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-6">
           <MetricCard icon={<Users size={16} className="text-[#6366f1]" />} label={t("report.totalResponses")} value={String(survey?.responses || reportData.totalResponses)} />
           <MetricCard icon={<Clock size={16} className="text-[#8b5cf6]" />} label={t("report.avgTime")} value={reportData.averageTime} />
-          <MetricCard icon={<CheckCircle size={16} className="text-emerald-600" />} label={t("report.completionRate")} value={`${reportData.completionRate}%`} />
           <MetricCard icon={<BarChart3 size={16} className="text-[#f59e0b]" />} label={t("report.questions")} value={reportData.questions.length.toString()} />
         </div>
         <div className="grid grid-cols-3 gap-4 mb-6">
@@ -546,10 +545,10 @@ export function MySurveys() {
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground text-sm">{t("mySurveys.responses")}: {survey.responses}</span>
                 <button
-                  onClick={() => navigate(`/respostas/${survey.id}`)}
+                  onClick={() => setReportModal(survey.id)}
                   className="text-[#6366f1] hover:text-[#5558e6] text-sm font-medium"
                 >
-                  {t("mySurveys.viewDetails")}
+                  Ver relatório
                 </button>
               </div>
             </div>
