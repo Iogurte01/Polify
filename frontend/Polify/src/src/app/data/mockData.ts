@@ -730,3 +730,25 @@ export const tokenPackages = [
   { id: "pkg3", name: "Business", tokens: 400, price: "R$ 149,90", popular: false },
   { id: "pkg4", name: "Enterprise", tokens: 1000, price: "R$ 299,90", popular: false },
 ];
+
+// ── Profile Avatars ──
+export interface ProfileAvatar {
+  id: string;
+  name: string;
+  imagePath: string;
+}
+
+export const profileAvatars: ProfileAvatar[] = [
+  { id: "avatar1", name: "Padrão", imagePath: "/avatars/avatar1.png" },
+  { id: "avatar2", name: "Aventureiro", imagePath: "/avatars/avatar2.png" },
+  { id: "avatar3", name: "Gamer", imagePath: "/avatars/avatar3.png" },
+  { id: "avatar4", name: "Artista", imagePath: "/avatars/avatar4.png" },
+  { id: "avatar5", name: "Tech", imagePath: "/avatars/avatar5.png" },
+  { id: "avatar6", name: "Natureza", imagePath: "/avatars/avatar6.png" },
+  { id: "avatar7", name: "Esportes", imagePath: "/avatars/avatar7.png" },
+  { id: "avatar8", name: "Música", imagePath: "/avatars/avatar8.png" },
+  { id: "avatar9", name: "Cinema", imagePath: "/avatars/avatar9.png" },
+  { id: "avatar10", name: "Viagem", imagePath: "/avatars/avatar10.png" },
+  { id: "avatar11", name: "Comida", imagePath: "/avatars/avatar11.png" },
+  { id: "avatar12", name: "Livros", imagePath: "/avatars/avatar12.png" },
+];

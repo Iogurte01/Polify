@@ -6,8 +6,9 @@ import {
   Download, AlertTriangle, Shield, Compass, Crown, Handshake,
 } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
-import { currentUser, brazilianStates, gamificationLevels } from "../data/mockData";
+import { currentUser, brazilianStates, gamificationLevels, profileAvatars } from "../data/mockData";
 import { CityAutocomplete } from "../components/CityAutocomplete";
+import { AvatarPicker } from "../components/AvatarPicker";
 import { toast } from "sonner";
 
 const badgeIcons: Record<string, React.ReactNode> = {
@@ -29,12 +30,13 @@ const levelIcons: Record<string, React.ReactNode> = {
 
 export function Profile() {
   const navigate = useNavigate();
-  const { auth, surveys, mySurveys, answeredSurveys, demographics, updateDemographics, xpTotal, xpRange, xpToNextLevel, xpProgressPercent, userLevel, logout, deleteAccount, downloadUserData, requestDataDeletion, lgpdDeletionStatus, t } = useApp();
+  const { auth, surveys, mySurveys, answeredSurveys, demographics, updateDemographics, xpTotal, xpRange, xpToNextLevel, xpProgressPercent, userLevel, logout, deleteAccount, downloadUserData, requestDataDeletion, lgpdDeletionStatus, selectedAvatar, updateAvatar, t } = useApp();
   const [editing, setEditing] = useState(false);
   const [editDraft, setEditDraft] = useState({ ...demographics });
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deletionConfirmModal, setDeletionConfirmModal] = useState(false);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
 
   const activeSurveysCount = surveys.filter((survey) => survey.status === "Ativa").length;
   const completionRate = activeSurveysCount > 0
@@ -49,7 +51,7 @@ export function Profile() {
   const handleDownloadData = () => { downloadUserData(); toast.success("Dados exportados com sucesso!"); };
   const handleRequestDeletion = async () => { await requestDataDeletion(); toast.success("Solicitação de exclusão enviada!"); setDeletionConfirmModal(false); };
 
-  const userInitials = auth.user?.name ? auth.user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "U";
+  const userName = auth.user && "name" in auth.user ? auth.user.name : auth.user?.nome || currentUser.name;
 
   return (
     <div className="max-w-[1200px] mx-auto px-8 py-8">
@@ -68,12 +70,27 @@ export function Profile() {
           {/* Profile Card */}
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-start gap-5">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white" style={{ fontSize: "22px", fontWeight: 600 }}>
-                {userInitials}
+              <div className="relative">
+                <button
+                  onClick={() => setAvatarModalOpen(true)}
+                  className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#6366f1]/20 hover:border-[#6366f1] transition-colors"
+                >
+                  <img
+                    src={profileAvatars.find((a) => a.id === selectedAvatar)?.imagePath || "/avatars/default.png"}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/avatars/default.png";
+                    }}
+                  />
+                </button>
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#6366f1] rounded-full flex items-center justify-center border-2 border-card cursor-pointer" onClick={() => setAvatarModalOpen(true)}>
+                  <Edit3 size={10} className="text-white" />
+                </div>
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-foreground">{auth.user?.name || currentUser.name}</h2>
+                  <h2 className="text-foreground">{userName}</h2>
                   <span className="flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ fontSize: "11px", fontWeight: 600, backgroundColor: `${userLevel.color}15`, color: userLevel.color }}>
                     {levelIcons[userLevel.icon]} {userLevel.name}
                   </span>
@@ -271,6 +288,17 @@ export function Profile() {
             </div>
           </div>
         </div>
+      )}
+
+      {avatarModalOpen && (
+        <AvatarPicker
+          selectedAvatar={selectedAvatar}
+          onSelect={(avatarId) => {
+            updateAvatar(avatarId);
+            setAvatarModalOpen(false);
+          }}
+          onClose={() => setAvatarModalOpen(false)}
+        />
       )}
     </div>
   );

@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useApp } from "../contexts/AppContext";
-import { mockRespondents, ratingQuestions, computeStarsFromStructuredRating } from "../data/mockData";
+import { ratingQuestions, computeStarsFromStructuredRating } from "../data/mockData";
 import { toast } from "sonner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
@@ -39,6 +39,7 @@ export function MySurveys() {
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState<any>(null);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [ratingRespondents, setRatingRespondents] = useState<any[]>([]);
 
   // Fetch user's surveys on component mount
   useEffect(() => {
@@ -81,6 +82,37 @@ export function MySurveys() {
 
     loadReportData();
   }, [reportModal, fetchSurveyResponses]);
+
+  // Fetch rating respondents when rateModal changes
+  useEffect(() => {
+    const loadRatingRespondents = async () => {
+      if (!rateModal) {
+        setRatingRespondents([]);
+        return;
+      }
+
+      try {
+        const data = await fetchSurveyResponses(rateModal);
+        if (data && data.success) {
+          // Transform backend responses into rating format
+          const transformedRespondents = data.responses.map((resp: any) => ({
+            id: resp.user_id.toString(),
+            name: resp.respondent_name || "Anônimo",
+            status: "Completo",
+            responses: resp.questions.length,
+            targetResponses: 0,
+            completedAt: resp.created_at,
+            questions: resp.questions
+          }));
+          setRatingRespondents(transformedRespondents);
+        }
+      } catch (error) {
+        console.error("Error loading rating respondents:", error);
+      }
+    };
+
+    loadRatingRespondents();
+  }, [rateModal, fetchSurveyResponses]);
 
   // Transform backend response data into UI format
   const transformReportData = (backendData: any) => {
@@ -447,9 +479,8 @@ export function MySurveys() {
 
   // Structured Rating Modal
   if (rateModal) {
-    const respondents = mockRespondents[rateModal] || [];
     return <StructuredRatingView
-      respondents={respondents}
+      respondents={ratingRespondents}
       respondentRatings={respondentRatings}
       rateRespondent={rateRespondent}
       onBack={() => setRateModal(null)}
@@ -808,7 +839,7 @@ function StructuredRatingView({ respondents, respondentRatings, rateRespondent, 
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-1">
                         <Star size={12} className="text-[#f59e0b] fill-[#f59e0b]" />
-                        <span className="text-foreground" style={{ fontSize: "13px" }}>{resp.avgRating.toFixed(1)}</span>
+                        <span className="text-foreground" style={{ fontSize: "13px" }}>{resp.avgRating?.toFixed(1) || "-"}</span>
                       </div>
                     </td>
                     <td className="px-5 py-4"><span className="text-muted-foreground" style={{ fontSize: "13px" }}>{resp.completedAt}</span></td>

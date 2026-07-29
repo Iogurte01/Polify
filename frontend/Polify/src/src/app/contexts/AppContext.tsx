@@ -67,6 +67,7 @@ interface AppState {
     reward: string;
   };
   lgpdDeletionStatus: "none" | "pending" | "completed";
+  selectedAvatar: string;
 }
 
 interface AppContextType extends AppState {
@@ -119,6 +120,7 @@ interface AppContextType extends AppState {
   downloadUserData: () => void;
   fetchSurveyResponses: (surveyId: string) => Promise<any>;
   userLevel: GamificationLevel;
+  updateAvatar: (avatarId: string) => void;
 }
 
 const defaultFilters = { category: "", state: "", city: "", time: "", reward: "" };
@@ -255,6 +257,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return (localStorage.getItem("polify_lgpdDeletion") as "none" | "pending" | "completed") || "none";
   });
 
+  const [selectedAvatar, setSelectedAvatar] = useState(() => {
+    return localStorage.getItem("polify_avatar") || "avatar1";
+  });
+
   // Persist to localStorage
   useEffect(() => { localStorage.setItem("polify_auth", JSON.stringify(auth)); }, [auth]);
   useEffect(() => { localStorage.setItem("polify_tokens", String(tokenBalance)); }, [tokenBalance]);
@@ -276,6 +282,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => { localStorage.setItem("polify_purchasedInsights", JSON.stringify(purchasedInsights)); }, [purchasedInsights]);
   useEffect(() => { localStorage.setItem("polify_filters", JSON.stringify(filters)); }, [filters]);
   useEffect(() => { localStorage.setItem("polify_lgpdDeletion", lgpdDeletionStatus); }, [lgpdDeletionStatus]);
+  useEffect(() => { localStorage.setItem("polify_avatar", selectedAvatar); }, [selectedAvatar]);
 
   useEffect(() => {
     localStorage.setItem("polify_theme", theme);
@@ -1060,6 +1067,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [auth.user?.id]);
 
+  const updateAvatar = useCallback((avatarId: string) => {
+    setSelectedAvatar(avatarId);
+    localStorage.setItem("polify_avatar", avatarId);
+  }, []);
+
   const value: AppContextType = {
     user: auth.user as User | null,
     setUser,
@@ -1067,14 +1079,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     tokenHistory: tokenHistoryList, answeredSurveys, respondentRatings,
     demographics, trustScore, totalResponses, xpTotal, xpLevelId, xpRange, xpToNextLevel, xpProgressPercent,
     onboardingComplete, purchasedInsights,
-    theme, lang, filters, lgpdDeletionStatus,
+    theme, lang, filters, lgpdDeletionStatus, selectedAvatar,
     t, login, loginGoogle, register, logout, fetchForms, fetchFormDetails, fetchMySurveys, createForm,
     setTheme, setLang, setFilters, clearFilters, activeFilterCount,
     addTokens, spendTokens, answerSurvey, publishSurvey,
     deleteSurvey, duplicateSurvey, boostSurvey,
     deleteAccount, changePassword, rateRespondent,
     updateDemographics, completeOnboarding, purchaseInsight, addMarketplaceSurvey,
-    requestDataDeletion, downloadUserData, fetchSurveyResponses, userLevel,
+    requestDataDeletion, downloadUserData, fetchSurveyResponses, userLevel, updateAvatar,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

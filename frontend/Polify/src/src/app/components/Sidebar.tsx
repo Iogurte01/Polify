@@ -5,9 +5,10 @@ import {
   Store, ChevronDown,
 } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
+import { profileAvatars } from "../data/mockData";
 
 export function Sidebar() {
-  const { auth, tokenBalance, userLevel, logout, t } = useApp();
+  const { auth, tokenBalance, userLevel, logout, selectedAvatar, t } = useApp();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -26,10 +27,6 @@ export function Sidebar() {
       ? auth.user.name
       : auth.user?.nome;
 
-  const userInitials = userName
-    ? userName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
-    : "U";
-    
   const handleLogout = () => { logout(); navigate("/login"); };
 
   return (
@@ -80,8 +77,15 @@ export function Sidebar() {
 
       <div className="px-4 py-4 border-t border-sidebar-border relative">
         <button onClick={() => setMenuOpen(!menuOpen)} className="flex items-center gap-3 w-full text-left">
-          <div className="w-9 h-9 rounded-full bg-[#6366f1] flex items-center justify-center text-white flex-shrink-0" style={{ fontSize: "13px", fontWeight: 600 }}>
-            {userInitials}
+          <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#6366f1]/30 flex-shrink-0">
+            <img
+              src={profileAvatars.find((a) => a.id === selectedAvatar)?.imagePath || "/avatars/default.png"}
+              alt="Avatar"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "/avatars/default.png";
+              }}
+            />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white truncate" style={{ fontSize: "13px", fontWeight: 500 }}>{userName || "User"}</p>
