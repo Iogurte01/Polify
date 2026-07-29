@@ -171,7 +171,7 @@ export function Profile() {
             </div>
             <div className="space-y-3">
               <DemoField label="Idade" value={editing ? editDraft.age : demographics.age} editing={editing} options={["18–24", "25–30", "31–40", "41–50", "51–60", "60+"]} onChange={(v) => setEditDraft({ ...editDraft, age: v })} />
-              <DemoField label="Gênero" value={editing ? editDraft.gender : demographics.gender} editing={editing} options={["Feminino", "Masculino", "Não-binário", "Prefiro não informar"]} onChange={(v) => setEditDraft({ ...editDraft, gender: v })} />
+              <DemoField label="Gênero" value={editing ? editDraft.gender : demographics.gender} editing={editing} options={["Masculino", "Feminino", "Outro", "Prefiro não dizer"]} onChange={(v) => setEditDraft({ ...editDraft, gender: v })} />
               <div>
                 <label className="text-muted-foreground block mb-1" style={{ fontSize: "11px", fontWeight: 500 }}>Estado</label>
                 {editing ? (
@@ -191,7 +191,7 @@ export function Profile() {
                   <p className="text-foreground" style={{ fontSize: "13px" }}>{demographics.city}</p>
                 )}
               </div>
-              <DemoField label="Escolaridade" value={editing ? editDraft.education : demographics.education} editing={editing} options={["Ensino Médio", "Graduação", "Pós-graduação", "Mestrado/Doutorado"]} onChange={(v) => setEditDraft({ ...editDraft, education: v })} />
+              <DemoField label="Escolaridade" value={editing ? editDraft.education : demographics.education} editing={editing} options={["Fundamental Incompleto", "Fundamental Completo", "Médio Incompleto", "Médio Completo", "Superior Incompleto", "Superior Completo", "Pós-graduação", "Mestrado", "Doutorado", "Prefiro não dizer"]} onChange={(v) => setEditDraft({ ...editDraft, education: v })} />
               <DemoField label="Renda" value={editing ? editDraft.income : demographics.income} editing={editing} options={["Até R$ 2.000", "R$ 2.000–5.000", "R$ 5.000–10.000", "Acima de R$ 10.000"]} onChange={(v) => setEditDraft({ ...editDraft, income: v })} />
             </div>
             {editing && (

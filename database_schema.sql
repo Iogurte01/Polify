@@ -2,12 +2,13 @@
 -- POLIFY FINAL DATABASE SCHEMA
 -- =====================================================
 
--- =====================================================
+-- =====================================================    
 -- CLEAN RECREATION
 -- =====================================================
 
 DROP VIEW IF EXISTS survey_statistics;
 DROP VIEW IF EXISTS survey_details;
+DROP VIEW IF EXISTS survey_statistics_report;
 
 DROP TABLE IF EXISTS resp_form CASCADE;
 DROP TABLE IF EXISTS header_form_cont CASCADE;
@@ -44,6 +45,23 @@ CREATE TABLE users (
     email_verificado BOOLEAN DEFAULT FALSE,
     auth_provider VARCHAR(20) NOT NULL DEFAULT 'local'
         CHECK (auth_provider IN ('local', 'google')),
+
+    -- Dados demográficos
+    gender VARCHAR(20) CHECK (gender IN ('Masculino', 'Feminino', 'Outro', 'Prefiro não dizer')),
+    escolaridade VARCHAR(50) CHECK (
+        escolaridade IN (
+            'Fundamental Incompleto',
+            'Fundamental Completo',
+            'Médio Incompleto',
+            'Médio Completo',
+            'Superior Incompleto',
+            'Superior Completo',
+            'Pós-graduação',
+            'Mestrado',
+            'Doutorado',
+            'Prefiro não dizer'
+        )
+    ),
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -215,6 +233,8 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_nome ON users(nome);
 CREATE INDEX idx_users_google_id ON users(google_id);
 CREATE INDEX idx_users_auth_provider ON users(auth_provider);
+CREATE INDEX idx_users_gender ON users(gender);
+CREATE INDEX idx_users_escolaridade ON users(escolaridade);
 
 CREATE INDEX idx_user_progress_user_id ON user_progress(user_id);
 CREATE INDEX idx_user_progress_xp_total ON user_progress(xp_total);
@@ -355,3 +375,35 @@ LEFT JOIN perguntas_form pf ON hf.id = pf.id_form
 LEFT JOIN resp_form rf ON pf.id_perg = rf.id_perg
 GROUP BY hf.id, hf.nome_formulario, hf.min_respondentes;
 
+
+CREATE VIEW survey_statistics_report AS
+SELECT 
+    hf.id AS survey_id,
+    hf.nome_formulario,
+    -- Total de respondentes únicos que iniciaram/responderam
+    COUNT(DISTINCT hfc.id_user) AS total_respondentes,
+    -- Total de respondentes que completaram (completed = TRUE)
+    COUNT(DISTINCT CASE WHEN hfc.completed = TRUE THEN hfc.id_user END) AS total_concluidos,
+    -- Taxa de conclusão em porcentagem
+    CASE 
+        WHEN COUNT(DISTINCT hfc.id_user) > 0 THEN 
+            ROUND((COUNT(DISTINCT CASE WHEN hfc.completed = TRUE THEN hfc.id_user END)::NUMERIC / COUNT(DISTINCT hfc.id_user)::NUMERIC) * 100, 2)
+        ELSE 0 
+    END AS taxa_conclusao,
+    -- Tempo médio de conclusão em segundos (ou minutos) baseado nas datas
+    ROUND(AVG(EXTRACT(EPOCH FROM (hfc.completion_date - hfc.date))), 2) AS tempo_medio_segundos,
+    -- Cruzamento por Faixa Etária baseado na idade real do usuário
+    u.idade,
+    CASE 
+        WHEN u.idade BETWEEN 18 AND 24 THEN '18-24 anos'
+        WHEN u.idade BETWEEN 25 AND 30 THEN '25-30 anos'
+        WHEN u.idade BETWEEN 31 AND 40 THEN '31-40 anos'
+        WHEN u.idade > 40 THEN '41+ anos'
+        ELSE 'Não informada'
+    END AS faixa_etaria_respondente,
+    -- Cruzamento por Cidade
+    COALESCE(u.cidade, 'Não informada') AS cidade_respondente
+FROM header_formulario hf
+LEFT JOIN header_form_cont hfc ON hf.id = hfc.id_form
+LEFT JOIN users u ON hfc.id_user = u.id
+GROUP BY hf.id, hf.nome_formulario, u.idade, u.cidade;

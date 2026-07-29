@@ -1,11 +1,11 @@
 import { useNavigate } from "react-router";
 import {
   FolderOpen, MoreHorizontal, BarChart3, Trash2, PlusCircle, Zap, Star,
-  Download, FileText, Users, Clock, CheckCircle, ArrowLeft, ShoppingCart, Shield, Coins,
+  Download, FileText, Users, Clock, CheckCircle, ArrowLeft, ShoppingCart, Coins,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useApp } from "../contexts/AppContext";
-import { reportData, mockRespondents, ratingQuestions, computeStarsFromStructuredRating } from "../data/mockData";
+import { mockRespondents, ratingQuestions, computeStarsFromStructuredRating } from "../data/mockData";
 import { toast } from "sonner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
@@ -28,7 +28,7 @@ type ViewTab = "created" | "marketplace";
 
 export function MySurveys() {
   const navigate = useNavigate();
-  const { mySurveys, deleteSurvey, boostSurvey, respondentRatings, rateRespondent, theme, t, fetchMySurveys } = useApp();
+  const { mySurveys, deleteSurvey, boostSurvey, respondentRatings, rateRespondent, theme, t, fetchMySurveys, fetchSurveyResponses } = useApp();
   const [searchQuery] = useState("");
   const [statusFilter] = useState("Todas");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -37,6 +37,8 @@ export function MySurveys() {
   const [reportModal, setReportModal] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ViewTab>("created");
   const [loading, setLoading] = useState(true);
+  const [reportData, setReportData] = useState<any>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
 
   // Fetch user's surveys on component mount
   useEffect(() => {
@@ -53,6 +55,185 @@ export function MySurveys() {
 
     loadSurveys();
   }, [fetchMySurveys]);
+
+  // Fetch report data when reportModal changes
+  useEffect(() => {
+    const loadReportData = async () => {
+      if (!reportModal) {
+        setReportData(null);
+        return;
+      }
+
+      try {
+        setLoadingReport(true);
+        const data = await fetchSurveyResponses(reportModal);
+        if (data && data.success) {
+          // Transform backend data into UI format
+          const transformedData = transformReportData(data);
+          setReportData(transformedData);
+        }
+      } catch (error) {
+        console.error("Error loading report data:", error);
+      } finally {
+        setLoadingReport(false);
+      }
+    };
+
+    loadReportData();
+  }, [reportModal, fetchSurveyResponses]);
+
+  // Transform backend response data into UI format
+  const transformReportData = (backendData: any) => {
+    const responses = backendData.responses || [];
+    const survey = backendData.survey || {};
+
+    // Aggregate demographics from user data (age, city, country, gender, education)
+    const demographics = {
+      age: aggregateAge(responses),
+      city: aggregateCity(responses),
+      country: aggregateCountry(responses),
+      gender: aggregateGender(responses),
+      education: aggregateEducation(responses)
+    };
+
+    // Aggregate question responses
+    const questionsMap = new Map();
+
+    responses.forEach((response: any) => {
+      response.questions.forEach((q: any) => {
+        if (!questionsMap.has(q.id_perg)) {
+          questionsMap.set(q.id_perg, {
+            id: q.id_perg,
+            question: q.pergunta,
+            type: q.tipagem === "multipla_escolha" ? "multiple" : q.tipagem === "escala" ? "scale" : "open",
+            data: []
+          });
+        }
+
+        const questionData = questionsMap.get(q.id_perg);
+        const answer = q.resposta;
+
+        // Handle different answer types
+        if (Array.isArray(answer)) {
+          answer.forEach((a: any) => {
+            const existing = questionData.data.find((d: any) => d.option === a);
+            if (existing) {
+              existing.count++;
+            } else {
+              questionData.data.push({ option: a, count: 1 });
+            }
+          });
+        } else {
+          const existing = questionData.data.find((d: any) => d.option === answer);
+          if (existing) {
+            existing.count++;
+          } else {
+            questionData.data.push({ option: answer, count: 1 });
+          }
+        }
+      });
+    });
+
+    const questions = Array.from(questionsMap.values());
+
+    return {
+      surveyTitle: survey.nome_formulario || "Pesquisa",
+      totalResponses: responses.length,
+      averageTime: "--:--", // Not available from backend
+      completionRate: 100, // Simplified
+      demographics,
+      questions
+    };
+  };
+
+  const aggregateAge = (responses: any[]) => {
+    const counts: Record<string, number> = {};
+    responses.forEach((r: any) => {
+      const age = r.demographics?.age;
+      if (age) {
+        const ageGroup = getAgeGroup(age);
+        counts[ageGroup] = (counts[ageGroup] || 0) + 1;
+      }
+    });
+
+    return Object.entries(counts).map(([name, count]) => ({
+      name,
+      value: Math.round((count / responses.length) * 100)
+    }));
+  };
+
+  const getAgeGroup = (age: number) => {
+    if (age < 25) return "18-24";
+    if (age < 31) return "25-30";
+    if (age < 41) return "31-40";
+    if (age < 51) return "41-50";
+    if (age < 61) return "51-60";
+    return "60+";
+  };
+
+  const aggregateCity = (responses: any[]) => {
+    const counts: Record<string, number> = {};
+    responses.forEach((r: any) => {
+      const city = r.demographics?.city;
+      if (city) {
+        counts[city] = (counts[city] || 0) + 1;
+      }
+    });
+
+    // Return top 5 cities
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, count]) => ({
+        name,
+        value: Math.round((count / responses.length) * 100)
+      }));
+  };
+
+  const aggregateCountry = (responses: any[]) => {
+    const counts: Record<string, number> = {};
+    responses.forEach((r: any) => {
+      const country = r.demographics?.country;
+      if (country) {
+        counts[country] = (counts[country] || 0) + 1;
+      }
+    });
+
+    return Object.entries(counts).map(([name, count]) => ({
+      name,
+      value: Math.round((count / responses.length) * 100)
+    }));
+  };
+
+  const aggregateGender = (responses: any[]) => {
+    const counts: Record<string, number> = {};
+    responses.forEach((r: any) => {
+      const gender = r.demographics?.gender;
+      if (gender) {
+        counts[gender] = (counts[gender] || 0) + 1;
+      }
+    });
+
+    return Object.entries(counts).map(([name, count]) => ({
+      name,
+      value: Math.round((count / responses.length) * 100)
+    }));
+  };
+
+  const aggregateEducation = (responses: any[]) => {
+    const counts: Record<string, number> = {};
+    responses.forEach((r: any) => {
+      const education = r.demographics?.education;
+      if (education) {
+        counts[education] = (counts[education] || 0) + 1;
+      }
+    });
+
+    return Object.entries(counts).map(([name, count]) => ({
+      name,
+      value: Math.round((count / responses.length) * 100)
+    }));
+  };
 
   const createdSurveys = mySurveys.filter(s => s.source !== "marketplace");
   const marketplaceSurveys = mySurveys.filter(s => s.source === "marketplace");
@@ -93,9 +274,10 @@ export function MySurveys() {
   };
 
   const handleExportCSV = () => {
+    if (!reportData) return;
     const csvContent = [
       "Pergunta,Opção,Respostas",
-      ...reportData.questions.flatMap(q => q.data.map(d => `"${q.question}","${d.option}",${d.count}`))
+      ...reportData.questions.flatMap((q: any) => q.data.map((d: any) => `"${q.question}","${d.option}",${d.count}`))
     ].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -106,6 +288,7 @@ export function MySurveys() {
   };
 
   const handleExportPDF = () => {
+    if (!reportData) return;
     try {
       const doc = new jsPDF();
       const survey = mySurveys.find(s => s.id === reportModal);
@@ -121,18 +304,42 @@ export function MySurveys() {
       doc.setFontSize(12); doc.text("Dados Demográficos", 14, 78);
       autoTable(doc, {
         startY: 82, head: [["Gênero", "%"]],
-        body: reportData.demographics.gender.map(g => [g.name, `${g.value}%`]),
+        body: reportData.demographics.gender.map((g: any) => [g.name, `${g.value}%`]),
+        theme: "grid", headStyles: { fillColor: [99, 102, 241] }, margin: { left: 14 }, tableWidth: 80,
+      });
+      const afterGender = (doc as any).lastAutoTable.finalY + 10;
+      autoTable(doc, {
+        startY: afterGender, head: [["Faixa Etária", "%"]],
+        body: reportData.demographics.age.map((g: any) => [g.name, `${g.value}%`]),
+        theme: "grid", headStyles: { fillColor: [99, 102, 241] }, margin: { left: 14 }, tableWidth: 80,
+      });
+      const afterAge = (doc as any).lastAutoTable.finalY + 10;
+      autoTable(doc, {
+        startY: afterAge, head: [["Escolaridade", "%"]],
+        body: reportData.demographics.education.map((e: any) => [e.name, `${e.value}%`]),
+        theme: "grid", headStyles: { fillColor: [99, 102, 241] }, margin: { left: 14 }, tableWidth: 80,
+      });
+      const afterEducation = (doc as any).lastAutoTable.finalY + 10;
+      autoTable(doc, {
+        startY: afterEducation, head: [["Cidade", "%"]],
+        body: reportData.demographics.city.map((c: any) => [c.name, `${c.value}%`]),
+        theme: "grid", headStyles: { fillColor: [99, 102, 241] }, margin: { left: 14 }, tableWidth: 80,
+      });
+      const afterCity = (doc as any).lastAutoTable.finalY + 10;
+      autoTable(doc, {
+        startY: afterCity, head: [["País", "%"]],
+        body: reportData.demographics.country.map((c: any) => [c.name, `${c.value}%`]),
         theme: "grid", headStyles: { fillColor: [99, 102, 241] }, margin: { left: 14 }, tableWidth: 80,
       });
       const afterDemo = (doc as any).lastAutoTable.finalY + 10;
-      reportData.questions.forEach((q, idx) => {
+      reportData.questions.forEach((q: any, idx: number) => {
         const startY = afterDemo + idx * 50;
         if (startY > 250) doc.addPage();
         const actualY = startY > 250 ? 20 : startY;
         doc.setFontSize(11); doc.text(`${idx + 1}. ${q.question}`, 14, actualY);
         autoTable(doc, {
           startY: actualY + 4, head: [["Opção", "Respostas", "%"]],
-          body: q.data.map(d => { const total = q.data.reduce((acc, item) => acc + item.count, 0); return [d.option, String(d.count), `${Math.round((d.count / total) * 100)}%`]; }),
+          body: q.data.map((d: any) => { const total = q.data.reduce((acc: number, item: any) => acc + item.count, 0); return [d.option, String(d.count), `${Math.round((d.count / total) * 100)}%`]; }),
           theme: "grid", headStyles: { fillColor: [99, 102, 241] }, margin: { left: 14 }, tableWidth: 160,
         });
       });
@@ -157,6 +364,25 @@ export function MySurveys() {
   // Report view
   if (reportModal) {
     const survey = mySurveys.find(s => s.id === reportModal);
+
+    if (loadingReport) {
+      return (
+        <div className="max-w-[1200px] mx-auto px-8 py-8 text-center">
+          <div className="w-8 h-8 border-2 border-[#6366f1] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando relatório...</p>
+        </div>
+      );
+    }
+
+    if (!reportData) {
+      return (
+        <div className="max-w-[1200px] mx-auto px-8 py-8 text-center">
+          <p className="text-muted-foreground">Erro ao carregar dados do relatório.</p>
+          <button onClick={() => setReportModal(null)} className="mt-4 text-[#6366f1] hover:underline">Voltar</button>
+        </div>
+      );
+    }
+
     return (
       <div className="max-w-[1200px] mx-auto px-8 py-8">
         <div className="flex items-center justify-between mb-8">
@@ -183,9 +409,13 @@ export function MySurveys() {
           <DemoPie title="Faixa Etária" data={reportData.demographics.age} theme={theme} />
           <DemoPie title="Escolaridade" data={reportData.demographics.education} theme={theme} />
         </div>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <DemoPie title="Cidades (Top 5)" data={reportData.demographics.city} theme={theme} />
+          <DemoPie title="Países" data={reportData.demographics.country} theme={theme} />
+        </div>
         <div className="space-y-4">
           <h2 className="text-foreground" style={{ fontSize: "16px" }}>{t("report.questionResponses")}</h2>
-          {reportData.questions.map((q) => (
+          {reportData.questions.map((q: any) => (
             <div key={q.id} className="bg-card border border-border rounded-xl p-6">
               <span className="bg-[#6366f1]/10 text-[#6366f1] px-2 py-0.5 rounded-md" style={{ fontSize: "11px", fontWeight: 500 }}>
                 {q.type === "multiple" ? "Múltipla Escolha" : q.type === "scale" ? "Escala" : "Aberta"}
@@ -342,7 +572,6 @@ export function MySurveys() {
             {filtered.map((survey) => {
               const progress = Math.round((survey.responses / Math.max(survey.targetResponses, 1)) * 100);
               const colors = statusColors[survey.status] || statusColors.Encerrada;
-              const quality = survey.avgQuality || 0;
 
               return (
                 <tr key={survey.id} className="border-b border-border last:border-0 hover:bg-secondary/50 transition-colors">
@@ -626,6 +855,18 @@ function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: stri
 function DemoPie({ title, data, theme }: { title: string; data: { name: string; value: number }[]; theme: string }) {
   const tooltipBg = theme === "dark" ? "#1a1830" : "#fff";
   const tooltipBorder = theme === "dark" ? "#2d2b50" : "#e2e4ec";
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h4 className="text-foreground mb-3" style={{ fontSize: "14px" }}>Cruzamento: {title}</h4>
+        <div className="h-[160px] flex items-center justify-center">
+          <p className="text-muted-foreground" style={{ fontSize: "12px" }}>Sem dados disponíveis</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-card border border-border rounded-xl p-5">
       <h4 className="text-foreground mb-3" style={{ fontSize: "14px" }}>Cruzamento: {title}</h4>

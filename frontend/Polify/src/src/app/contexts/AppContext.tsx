@@ -117,6 +117,7 @@ interface AppContextType extends AppState {
   addMarketplaceSurvey: (title: string, id: string) => void;
   requestDataDeletion: () => Promise<void>;
   downloadUserData: () => void;
+  fetchSurveyResponses: (surveyId: string) => Promise<any>;
   userLevel: GamificationLevel;
 }
 
@@ -812,6 +813,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (data.faixa_atual) setXpRange(data.faixa_atual);
         if (data.xp_para_proximo_nivel !== undefined) setXpToNextLevel(data.xp_para_proximo_nivel);
         if (data.progress_percent !== undefined) setXpProgressPercent(data.progress_percent);
+        
+        // Atualizar saldo de tokens se houver recompensa
+        if (data.tokens_earned !== undefined && data.tokens_earned > 0) {
+          setTokenBalance(prev => prev + data.tokens_earned);
+          setTokenHistory(prev => [{
+            id: `t${Date.now()}`, type: "earned", amount: data.tokens_earned, description: "Recompensa por responder pesquisa",
+            date: new Date().toISOString().split("T")[0],
+          }, ...prev]);
+        }
 
         // Atualizar estado local apenas se backend salvar com sucesso
         setAnsweredSurveys(prev => [...prev, surveyId]);
@@ -1037,6 +1047,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     URL.revokeObjectURL(url);
   }, [auth.user, avgRating, tokenBalance, answeredSurveys, demographics, trustScore, totalResponses, tokenHistoryList, mySurveysList, respondentRatings]);
 
+  const fetchSurveyResponses = useCallback(async (surveyId: string) => {
+    try {
+      const userId = auth.user?.id || currentUser.id;
+      const response = await fetch(`${URL_backend}/api/surveys/${surveyId}/responses?user_id=${userId}`);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error fetching survey responses:", error);
+      return null;
+    }
+  }, [auth.user?.id]);
+
   const value: AppContextType = {
     user: auth.user as User | null,
     setUser,
@@ -1051,7 +1073,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deleteSurvey, duplicateSurvey, boostSurvey,
     deleteAccount, changePassword, rateRespondent,
     updateDemographics, completeOnboarding, purchaseInsight, addMarketplaceSurvey,
-    requestDataDeletion, downloadUserData, userLevel,
+    requestDataDeletion, downloadUserData, fetchSurveyResponses, userLevel,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

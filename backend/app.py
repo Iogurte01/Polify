@@ -1608,9 +1608,9 @@ def get_survey_responses(survey_id):
 
         print(f"DEBUG: User {user_id} accessing responses for survey {survey_id} (owner: {survey_owner_id})")
 
-        # Get all responses for this survey
+        # Get all responses for this survey with demographic data
         query = """
-        SELECT 
+        SELECT
             rf.id,
             rf.id_user,
             rf.resposta,
@@ -1620,7 +1620,12 @@ def get_survey_responses(survey_id):
             pf.num_pergunta,
             pf.tipagem,
             pf.alternativa,
-            u.nome || ' ' || COALESCE(u.sobrenome, '') as respondent_name
+            u.nome || ' ' || COALESCE(u.sobrenome, '') as respondent_name,
+            u.idade,
+            u.cidade,
+            u.pais,
+            u.gender,
+            u.escolaridade
         FROM resp_form rf
         JOIN perguntas_form pf ON rf.id_perg = pf.id_perg
         JOIN users u ON rf.id_user = u.id
@@ -1634,17 +1639,24 @@ def get_survey_responses(survey_id):
         # Group responses by user
         responses_by_user = {}
         for row in response_rows:
-            (resp_id, user_id_resp, resposta, created_at, perg_id, pergunta, num_pergunta, tipagem, alternativa, respondent_name) = row
-            
+            (resp_id, user_id_resp, resposta, created_at, perg_id, pergunta, num_pergunta, tipagem, alternativa, respondent_name, idade, cidade, pais, gender, escolaridade) = row
+
             if user_id_resp not in responses_by_user:
                 responses_by_user[user_id_resp] = {
                     "id": resp_id,
                     "user_id": user_id_resp,
                     "respondent_name": respondent_name,
                     "created_at": created_at.isoformat() if created_at else None,
+                    "demographics": {
+                        "age": idade,
+                        "city": cidade,
+                        "country": pais,
+                        "gender": gender,
+                        "education": escolaridade
+                    },
                     "questions": []
                 }
-            
+
             responses_by_user[user_id_resp]["questions"].append({
                 "id_perg": perg_id,
                 "pergunta": pergunta,
@@ -1757,11 +1769,13 @@ def save_responses():
                 return jsonify({"success": False, "message": "Não foi possível identificar o formulário da resposta"}), 400
             survey_id = survey_row[0]
 
-        # Validar formulário existe
-        cur.execute("SELECT id FROM header_formulario WHERE id = %s", (survey_id,))
+        # Validar formulário existe e buscar pontos_recompensa
+        cur.execute("SELECT id, pontos_recompensa FROM header_formulario WHERE id = %s", (survey_id,))
         survey_exists = cur.fetchone()
         if not survey_exists:
             return jsonify({"success": False, "message": "Formulário não encontrado"}), 404
+        
+        pontos_recompensa = survey_exists[1] if survey_exists[1] is not None else 0
 
         # Carregar perguntas do formulário e validar contra o payload
         cur.execute(
@@ -1857,7 +1871,7 @@ def save_responses():
                 "created_at": created_at.isoformat() if created_at else None
             })
 
-        # Marca a participação como concluída e soma XP no mesmo commit
+        # Marca a participação como concluída, soma XP e credita tokens no mesmo commit
         cur.execute(
             """
             UPDATE header_form_cont
@@ -1866,6 +1880,33 @@ def save_responses():
             """,
             (survey_id, id_user)
         )
+
+        # Creditar tokens de recompensa ao respondente
+        if pontos_recompensa > 0:
+            cur.execute(
+                """
+                SELECT current_balance
+                FROM token_balance
+                WHERE user_id = %s
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """,
+                (id_user,)
+            )
+            last_balance_row = cur.fetchone()
+            previous_balance = int(last_balance_row[0]) if last_balance_row and last_balance_row[0] is not None else 0
+            
+            new_token_balance = previous_balance + pontos_recompensa
+            
+            cur.execute(
+                """
+                INSERT INTO token_balance
+                (user_id, transaction_type, amount, current_balance, reason, purchase_status)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id, created_at
+                """,
+                (id_user, "credit", pontos_recompensa, new_token_balance, f"Recompensa por responder pesquisa {survey_id}", "completed")
+            )
 
         cur.execute(
             """
@@ -1888,6 +1929,7 @@ def save_responses():
             "message": "Respostas salvas com sucesso",
             "responses": saved_responses,
             "xp_earned": XP_PER_COMPLETED_SURVEY,
+            "tokens_earned": pontos_recompensa,
             "xp_total": xp_total,
             "nivel_atual": xp_level["nivel_atual"],
             "level_id": xp_level["level_id"],
