@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { CheckCircle, Shield, Award, TrendingUp, Coins, ArrowRight } from "lucide-react";
+import { CheckCircle, Shield, Award, TrendingUp, Coins, ArrowRight, User } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
+import { AvatarPicker } from "../components/AvatarPicker";
+import { profileAvatars } from "../data/mockData";
 
 const steps = [
   {
     icon: Coins,
     title: "Como funciona a Polify",
     points: [
-      "Você responde pesquisas e ganha tokens (1 token por minuto)",
-      "Pode publicar pesquisas usando tokens (5 tokens por minuto)",
       "Tokens são sua moeda dentro da plataforma",
+      "Você responde pesquisas e ganha tokens",
+      "Você pode publicar e comprar pesquisas usando tokens",
     ],
   },
   {
@@ -42,12 +44,24 @@ const steps = [
       "Conquiste badges e destaque na comunidade",
     ],
   },
+  {
+    icon: User,
+    title: "Personalização",
+    points: [
+      "Cada usuário possui um perfil personalizável",
+      "Escolha seu avatar para se destacar na comunidade",
+      "Seu avatar será exibido na sidebar e no perfil",
+      "Você pode alterar seu avatar a qualquer momento",
+    ],
+    isAvatarStep: true,
+  },
 ];
 
 export function Onboarding() {
   const navigate = useNavigate();
-  const { completeOnboarding } = useApp();
+  const { completeOnboarding, selectedAvatar, updateAvatar } = useApp();
   const [currentStep, setCurrentStep] = useState(0);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
 
   const handleAccept = () => {
     completeOnboarding();
@@ -90,16 +104,50 @@ export function Onboarding() {
             {step.title}
           </h2>
 
-          <div className="space-y-3 mb-8">
-            {step.points.map((point, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <CheckCircle size={16} className="text-[#6366f1] flex-shrink-0 mt-0.5" />
-                <p className="text-muted-foreground" style={{ fontSize: "14px", lineHeight: 1.6 }}>
-                  {point}
-                </p>
+          {step.isAvatarStep ? (
+            <div className="mb-8">
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <img
+                    src={profileAvatars.find((a) => a.id === selectedAvatar)?.imagePath || "/avatars/default.png"}
+                    alt="Avatar"
+                    className="w-24 h-24 rounded-full object-cover border-4 border-[#6366f1]/20"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/avatars/default.png";
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={() => setAvatarModalOpen(true)}
+                  className="px-6 py-2.5 rounded-xl bg-[#6366f1] hover:bg-[#5558e6] text-white transition-colors"
+                  style={{ fontSize: "14px", fontWeight: 500 }}
+                >
+                  Alterar avatar
+                </button>
               </div>
-            ))}
-          </div>
+              <div className="space-y-3 mt-6">
+                {step.points.map((point, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <CheckCircle size={16} className="text-[#6366f1] flex-shrink-0 mt-0.5" />
+                    <p className="text-muted-foreground" style={{ fontSize: "14px", lineHeight: 1.6 }}>
+                      {point}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3 mb-8">
+              {step.points.map((point, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <CheckCircle size={16} className="text-[#6366f1] flex-shrink-0 mt-0.5" />
+                  <p className="text-muted-foreground" style={{ fontSize: "14px", lineHeight: 1.6 }}>
+                    {point}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             {currentStep > 0 ? (
@@ -135,6 +183,17 @@ export function Onboarding() {
             )}
           </div>
         </div>
+
+        {avatarModalOpen && (
+          <AvatarPicker
+            selectedAvatar={selectedAvatar}
+            onSelect={(avatarId) => {
+              updateAvatar(avatarId);
+              setAvatarModalOpen(false);
+            }}
+            onClose={() => setAvatarModalOpen(false)}
+          />
+        )}
       </div>
     </div>
   );
