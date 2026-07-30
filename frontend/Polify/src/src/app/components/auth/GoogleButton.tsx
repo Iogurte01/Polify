@@ -59,11 +59,11 @@ export default function GoogleButton({
       style={{ position: "relative" }}
     >
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-xl">
+        <div className="absolute inset-0 flex items-center justify-center bg-background/90 rounded-xl z-10">
           <Loader2 className="animate-spin text-[#6366f1]" size={20} />
         </div>
       )}
-      <span style={{ opacity: loading ? 0.5 : 1 }}>
+      <span className="flex items-center justify-center gap-2" style={{ opacity: loading ? 0.3 : 1 }}>
         {children}
       </span>
     </button>
