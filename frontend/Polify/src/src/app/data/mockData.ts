@@ -218,8 +218,6 @@ export const surveys: Survey[] = [
     author: "Instituto Beleza Consciente",
     state: "SP",
     city: "São José dos Campos",
-    trending: true,
-    trendGrowth: "+42%",
   },
   {
     id: "2",
@@ -237,8 +235,6 @@ export const surveys: Survey[] = [
     author: "UNICAMP – Dep. Eng. Computação",
     state: "SP",
     city: "Campinas",
-    trending: true,
-    trendGrowth: "+28%",
   },
   {
     id: "3",
@@ -273,8 +269,6 @@ export const surveys: Survey[] = [
     author: "Fashion Lab São Paulo",
     state: "RJ",
     city: "Rio de Janeiro",
-    trending: true,
-    trendGrowth: "+19%",
   },
   {
     id: "5",

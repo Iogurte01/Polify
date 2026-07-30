@@ -306,12 +306,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return str;
   }, [lang]);
 
-  // Calculate if a survey is trending based on progress and response count
-  // Trending if: responses >= 40% of target AND responses >= 3
-  const calculateTrending = (responses: number, targetResponses: number): boolean => {
-    const progressPercent = (responses / targetResponses) * 100;
-    return progressPercent >= 40 && responses >= 3;
-  };
 
   // Generate segmentation label based on all demographic fields
   const generateSegmentation = (
@@ -424,8 +418,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           targetResponses: form.min_respondentes || 50,
           status: "Ativa",
           eligible: true,
-          trending: calculateTrending(form.responses || 0, form.min_respondentes || 50),
-          boosted: Math.random() > 0.8,
+          trending: false,
+          boosted: false,
           segmentation: generateSegmentation(form.state, form.city, form.faixa_etaria, form.genero, form.escolaridade, form.renda),
           creator: form.criador_nome,
           state: form.state || "",
@@ -477,8 +471,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           targetResponses: survey.targetResponses ?? survey.min_respondentes ?? 50,
           status: survey.status || (survey.is_active ? "Ativa" : "Encerrada"),
           eligible: true,
-          trending: calculateTrending(survey.responses ?? survey.total_responses ?? 0, survey.targetResponses ?? survey.min_respondentes ?? 50),
-          boosted: Math.random() > 0.8,
+          trending: false,
+          boosted: false,
           segmentation: generateSegmentation(survey.state, survey.city, survey.faixa_etaria, survey.genero, survey.escolaridade, survey.renda),
           createdAt: new Date(survey.createdAt || survey.created_at).toLocaleDateString('pt-BR'),
           source: survey.source || "created",
