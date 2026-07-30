@@ -400,7 +400,7 @@ def login():
         cur = conn.cursor()
 
         cur.execute(
-            "SELECT id, nome, email, telefone, password_hash FROM users WHERE LOWER(email) = LOWER(%s)",
+            "SELECT id, nome, email, telefone, password_hash, onboarding_complete FROM users WHERE LOWER(email) = LOWER(%s)",
             (email,)
         )
 
@@ -415,7 +415,7 @@ def login():
                 "message": "Usuário não encontrado"
             }), 401
         
-        user_id, name, user_email, phone, password_hash, = user
+        user_id, name, user_email, phone, password_hash, onboarding_complete = user
 
         if not check_password_hash(password_hash, password):
             return jsonify({
@@ -430,7 +430,8 @@ def login():
                 "id": user_id,
                 "name": name,
                 "email": user_email,
-                "telefone": phone
+                "telefone": phone,
+                "onboarding_complete": onboarding_complete
             }
         }), 200
     
@@ -497,7 +498,7 @@ def login_google():
     # =====================================================
 
     cur.execute("""
-        SELECT id, nome, email, telefone
+        SELECT id, nome, email, telefone, onboarding_complete
         FROM users
         WHERE google_id = %s
     """, (google_user["sub"],))
@@ -513,7 +514,7 @@ def login_google():
     if not user:
 
         cur.execute("""
-            SELECT id, nome, email, telefone
+            SELECT id, nome, email, telefone, onboarding_complete
             FROM users
             WHERE LOWER(email)=LOWER(%s)
         """, (google_user["email"],))
@@ -564,10 +565,11 @@ def login_google():
                     google_id,
                     foto_perfil,
                     email_verificado,
-                    auth_provider
+                    auth_provider,
+                    onboarding_complete
                 )
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                RETURNING id, nome, email, telefone
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                RETURNING id, nome, email, telefone, onboarding_complete
             """, (
                 google_user["given_name"],
                 google_user.get("family_name"),
@@ -576,7 +578,8 @@ def login_google():
                 google_user["sub"],
                 google_user.get("picture"),
                 google_user.get("email_verified", False),
-                "google"
+                "google",
+                False
             ))
 
             conn.commit()
@@ -592,7 +595,7 @@ def login_google():
     if not user:
 
         cur.execute("""
-            SELECT id, nome, email, telefone
+            SELECT id, nome, email, telefone, onboarding_complete
             FROM users
             WHERE google_id=%s
         """, (google_user["sub"],))
@@ -604,7 +607,7 @@ def login_google():
     # 6 - Login
     # =====================================================
 
-    user_id, nome, email, telefone = user
+    user_id, nome, email, telefone, onboarding_complete = user
 
     cur.close()
     conn.close()
@@ -616,7 +619,8 @@ def login_google():
             "id": user_id,
             "name": nome,
             "email": email,
-            "telefone": telefone
+            "telefone": telefone,
+            "onboarding_complete": onboarding_complete
         }
     }), 200
 
@@ -994,6 +998,41 @@ def update_user_demographics(user_id):
             conn.rollback()
         print(f"Erro ao atualizar dados demográficos: {e}")
         return jsonify({"success": False, "message": "Erro ao atualizar dados demográficos"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@app.route("/api/users/<int:user_id>/onboarding-complete", methods=["PUT"])
+def complete_onboarding(user_id):
+    """
+    Mark user onboarding as complete
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Verify user exists
+        cur.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+        if not cur.fetchone():
+            return jsonify({"success": False, "message": "Usuário não encontrado"}), 404
+
+        # Update onboarding_complete
+        cur.execute("UPDATE users SET onboarding_complete = TRUE WHERE id = %s", (user_id,))
+        conn.commit()
+
+        return jsonify({"success": True, "message": "Onboarding marcado como completo"})
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao completar onboarding: {e}")
+        return jsonify({"success": False, "message": "Erro ao completar onboarding"}), 500
 
     finally:
         if cur:

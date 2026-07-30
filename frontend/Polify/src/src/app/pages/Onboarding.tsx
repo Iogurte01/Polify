@@ -3,7 +3,8 @@ import { useNavigate } from "react-router";
 import { CheckCircle, Shield, Award, TrendingUp, Coins, ArrowRight, User, UserCircle } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
 import { AvatarPicker } from "../components/AvatarPicker";
-import { profileAvatars } from "../data/mockData";
+import { CityAutocomplete } from "../components/CityAutocomplete";
+import { profileAvatars, brazilianStates } from "../data/mockData";
 import { toast } from "sonner";
 
 const steps = [
@@ -83,9 +84,14 @@ export function Onboarding() {
     income: ""
   });
 
-  const handleAccept = () => {
-    completeOnboarding();
-    navigate("/");
+  const handleAccept = async () => {
+    const success = await completeOnboarding();
+    if (success) {
+      toast.success("Onboarding concluído!");
+      navigate("/");
+    } else {
+      toast.error("Erro ao concluir onboarding. Tente novamente.");
+    }
   };
 
   const handleSaveDemographics = async () => {
@@ -166,25 +172,25 @@ export function Onboarding() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-foreground text-sm font-medium mb-1.5 block">Estado</label>
-                    <input
-                      type="text"
+                    <select
                       value={demographicsData.state}
-                      onChange={(e) => setDemographicsData({ ...demographicsData, state: e.target.value })}
-                      placeholder="UF"
-                      maxLength={2}
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
+                      onChange={(e) => setDemographicsData({ ...demographicsData, state: e.target.value, city: "" })}
+                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
                       style={{ fontSize: "14px" }}
-                    />
+                    >
+                      <option value="">Selecione</option>
+                      {brazilianStates.map(s => (
+                        <option key={s.uf} value={s.uf}>{s.uf} - {s.name}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="text-foreground text-sm font-medium mb-1.5 block">Cidade</label>
-                    <input
-                      type="text"
+                    <CityAutocomplete
+                      stateUf={demographicsData.state}
                       value={demographicsData.city}
-                      onChange={(e) => setDemographicsData({ ...demographicsData, city: e.target.value })}
-                      placeholder="Sua cidade"
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
-                      style={{ fontSize: "14px" }}
+                      onChange={(city) => setDemographicsData({ ...demographicsData, city })}
+                      placeholder="Buscar cidade..."
                     />
                   </div>
                 </div>

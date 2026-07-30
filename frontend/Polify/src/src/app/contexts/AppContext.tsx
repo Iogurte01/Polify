@@ -113,7 +113,7 @@ interface AppContextType extends AppState {
   changePassword: (currentPass: string, newPass: string) => Promise<boolean>;
   rateRespondent: (surveyId: string, respondentId: string, answers: Record<string, boolean>) => Promise<boolean>;
   updateDemographics: (data: Partial<Demographics>) => Promise<boolean>;
-  completeOnboarding: () => void;
+  completeOnboarding: () => Promise<boolean>;
   purchaseInsight: (id: string, price: number) => Promise<boolean>;
   addMarketplaceSurvey: (title: string, id: string) => void;
   requestDataDeletion: () => Promise<void>;
@@ -599,6 +599,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAuth(authData);
         localStorage.setItem("polify_auth", JSON.stringify(authData));
 
+        // Set onboarding status from backend
+        setOnboardingComplete(data.user?.onboarding_complete || false);
+
         // Fetch wallet data after successful login
         if (data.user?.id) {
           await fetchWalletData(data.user.id);
@@ -648,6 +651,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAuth(authData);
 
       console.log("setAuth executado");
+
+      // Set onboarding status from backend
+      setOnboardingComplete(data.user?.onboarding_complete || false);
 
       localStorage.setItem(
         "polify_auth",
@@ -1052,9 +1058,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [auth.user?.id]);
 
   // Onboarding
-  const completeOnboarding = useCallback(() => {
-    setOnboardingComplete(true);
-  }, []);
+  const completeOnboarding = useCallback(async () => {
+    const userId = auth.user?.id || currentUser.id;
+
+    try {
+      const response = await fetch(`${URL_backend}/api/users/${userId}/onboarding-complete`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setOnboardingComplete(true);
+        return true;
+      } else {
+        console.error("Erro ao completar onboarding:", result.message);
+        return false;
+      }
+    } catch (error) {
+      console.error("Erro ao conectar com o servidor:", error);
+      return false;
+    }
+  }, [auth.user?.id]);
 
   // Purchase insight
   const purchaseInsight = useCallback(async (id: string, price: number): Promise<boolean> => {
