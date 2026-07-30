@@ -111,8 +111,8 @@ interface AppContextType extends AppState {
   boostSurvey: (id: string) => Promise<boolean>;
   deleteAccount: () => Promise<void>;
   changePassword: (currentPass: string, newPass: string) => Promise<boolean>;
-  rateRespondent: (respondentId: string, answers: Record<string, boolean>) => void;
-  updateDemographics: (data: Partial<Demographics>) => void;
+  rateRespondent: (surveyId: string, respondentId: string, answers: Record<string, boolean>) => Promise<boolean>;
+  updateDemographics: (data: Partial<Demographics>) => Promise<boolean>;
   completeOnboarding: () => void;
   purchaseInsight: (id: string, price: number) => Promise<boolean>;
   addMarketplaceSurvey: (title: string, id: string) => void;
@@ -982,20 +982,65 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [auth.user?.id]);
 
   // Rate respondent with structured questions
-  const rateRespondent = useCallback((respondentId: string, answers: Record<string, boolean>) => {
-    setRespondentRatings(prev => ({ ...prev, [respondentId]: answers }));
-    // Update avg rating based on all ratings
+  const rateRespondent = useCallback(async (surveyId: string, respondentId: string, answers: Record<string, boolean>) => {
     const stars = computeStarsFromStructuredRating(answers);
-    setAvgRating(prev => {
-      const total = Object.keys(respondentRatings).length;
-      return total > 0 ? Math.round(((prev * total + stars) / (total + 1)) * 10) / 10 : stars;
-    });
-  }, [respondentRatings]);
+    const userId = auth.user?.id || currentUser.id;
+
+    try {
+      const response = await fetch(`${URL_backend}/api/surveys/${surveyId}/rate-respondent`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rater_user_id: userId,
+          rated_user_id: parseInt(respondentId),
+          rating: stars
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setRespondentRatings(prev => ({ ...prev, [respondentId]: answers }));
+        return true;
+      } else {
+        console.error("Erro ao salvar avaliação:", data.message);
+        return false;
+      }
+    } catch (error) {
+      console.error("Erro ao conectar com o servidor:", error);
+      return false;
+    }
+  }, [auth.user?.id]);
 
   // Demographics
-  const updateDemographics = useCallback((data: Partial<Demographics>) => {
-    setDemographics(prev => ({ ...prev, ...data }));
-  }, []);
+  const updateDemographics = useCallback(async (data: Partial<Demographics>): Promise<boolean> => {
+    const userId = auth.user?.id || currentUser.id;
+
+    try {
+      const response = await fetch(`${URL_backend}/api/users/${userId}/demographics`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setDemographics(prev => ({ ...prev, ...data }));
+        return true;
+      } else {
+        console.error("Erro ao atualizar dados demográficos:", result.message);
+        return false;
+      }
+    } catch (error) {
+      console.error("Erro ao conectar com o servidor:", error);
+      return false;
+    }
+  }, [auth.user?.id]);
 
   // Onboarding
   const completeOnboarding = useCallback(() => {

@@ -253,19 +253,63 @@ def ensure_user_progress(cur, user_id):
 def get_user_progress_data(cur, user_id):
     ensure_user_progress(cur, user_id)
     cur.execute(
-        "SELECT xp_total, created_at, updated_at FROM user_progress WHERE user_id = %s",
+        "SELECT xp_total, avg_rating, total_ratings_count, created_at, updated_at FROM user_progress WHERE user_id = %s",
         (user_id,)
     )
     row = cur.fetchone()
-    xp_total, created_at, updated_at = row
+    xp_total, avg_rating, total_ratings_count, created_at, updated_at = row
     level_data = calculate_xp_level(xp_total or 0)
     return {
         "user_id": user_id,
         "xp_total": xp_total or 0,
+        "avg_rating": float(avg_rating) if avg_rating else 0,
+        "total_ratings_count": total_ratings_count or 0,
         "created_at": created_at.isoformat() if created_at else None,
         "updated_at": updated_at.isoformat() if updated_at else None,
         **level_data,
     }
+
+
+def calculate_moving_avg_rating(cur, rated_user_id):
+    """
+    Calcula a média móvel das últimas 100 avaliações do usuário.
+    Se tiver menos de 100, usa todas as avaliações.
+    """
+    cur.execute(
+        """
+        SELECT rating
+        FROM respondent_ratings
+        WHERE rated_user_id = %s
+        ORDER BY created_at DESC
+        LIMIT 100
+        """,
+        (rated_user_id,)
+    )
+    ratings = cur.fetchall()
+    
+    if not ratings:
+        return 0.0, 0
+    
+    ratings_list = [r[0] for r in ratings]
+    avg_rating = sum(ratings_list) / len(ratings_list)
+    
+    return round(avg_rating, 2), len(ratings_list)
+
+
+def update_user_rating(cur, rated_user_id):
+    """
+    Atualiza a média de avaliação do usuário no user_progress
+    """
+    avg_rating, total_count = calculate_moving_avg_rating(cur, rated_user_id)
+    
+    cur.execute(
+        """
+        UPDATE user_progress
+        SET avg_rating = %s, total_ratings_count = %s, updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = %s
+        """,
+        (avg_rating, total_count, rated_user_id)
+    )
 
 
 @app.route("/api/register", methods=["POST"])
@@ -875,6 +919,81 @@ def change_password():
             conn.rollback()
         print(f"ERROR: {str(e)}")
         return jsonify({"success": False, "message": "Erro interno ao alterar senha"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route("/api/users/<int:user_id>/demographics", methods=["PUT"])
+def update_user_demographics(user_id):
+    """
+    Update user demographic information
+    """
+    data = request.json
+
+    idade = data.get("idade")
+    gender = data.get("gender")
+    cidade = data.get("cidade")
+    estado = data.get("estado")
+    escolaridade = data.get("escolaridade")
+    renda = data.get("renda")
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Verify user exists
+        cur.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+        if not cur.fetchone():
+            return jsonify({"success": False, "message": "Usuário não encontrado"}), 404
+
+        # Update demographic fields
+        update_fields = []
+        update_values = []
+
+        if idade is not None:
+            update_fields.append("idade = %s")
+            update_values.append(idade)
+
+        if gender is not None:
+            update_fields.append("gender = %s")
+            update_values.append(gender)
+
+        if cidade is not None:
+            update_fields.append("cidade = %s")
+            update_values.append(cidade)
+
+        if estado is not None:
+            update_fields.append("estado = %s")
+            update_values.append(estado)
+
+        if escolaridade is not None:
+            update_fields.append("escolaridade = %s")
+            update_values.append(escolaridade)
+
+        if renda is not None:
+            update_fields.append("renda = %s")
+            update_values.append(renda)
+
+        if update_fields:
+            update_values.append(user_id)
+            query = f"UPDATE users SET {', '.join(update_fields)} WHERE id = %s"
+            cur.execute(query, update_values)
+            conn.commit()
+
+        return jsonify({"success": True, "message": "Dados demográficos atualizados com sucesso"})
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao atualizar dados demográficos: {e}")
+        return jsonify({"success": False, "message": "Erro ao atualizar dados demográficos"}), 500
 
     finally:
         if cur:
@@ -1681,6 +1800,22 @@ def get_survey_responses(survey_id):
         responses_list = list(responses_by_user.values())
         responses_list.sort(key=lambda x: x["created_at"] or "")
 
+        # Add rating for each respondent
+        for response in responses_list:
+            respondent_id = response["user_id"]
+            ensure_user_progress(cur, respondent_id)
+            cur.execute(
+                "SELECT avg_rating, total_ratings_count FROM user_progress WHERE user_id = %s",
+                (respondent_id,)
+            )
+            rating_row = cur.fetchone()
+            if rating_row:
+                response["avg_rating"] = float(rating_row[0]) if rating_row[0] else 0
+                response["total_ratings_count"] = rating_row[1] or 0
+            else:
+                response["avg_rating"] = 0
+                response["total_ratings_count"] = 0
+
         return jsonify({
             "success": True,
             "survey": {
@@ -2313,6 +2448,99 @@ def register_purchase_intention():
             "success": False,
             "message": f"Erro ao registrar intenção de compra: {str(e)}"
         }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route("/api/surveys/<int:survey_id>/rate-respondent", methods=["POST"])
+def rate_respondent(survey_id):
+    """
+    Avalia um respondente de uma pesquisa.
+    O criador da pesquisa avalia a qualidade das respostas de um respondente.
+    """
+    data = request.json
+    rater_user_id = data.get("rater_user_id")  # quem avaliou (criador)
+    rated_user_id = data.get("rated_user_id")  # quem foi avaliado (respondente)
+    rating = data.get("rating")  # estrelas 1-5
+
+    if not rater_user_id or not rated_user_id or not rating:
+        return jsonify({"success": False, "message": "Campos obrigatórios: rater_user_id, rated_user_id, rating"}), 400
+
+    if not isinstance(rating, int) or rating < 1 or rating > 5:
+        return jsonify({"success": False, "message": "Rating deve ser um inteiro entre 1 e 5"}), 400
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Verificar se a pesquisa existe e quem é o criador
+        cur.execute(
+            "SELECT id_criador FROM header_formulario WHERE id = %s",
+            (survey_id,)
+        )
+        survey = cur.fetchone()
+
+        if not survey:
+            return jsonify({"success": False, "message": "Pesquisa não encontrada"}), 404
+
+        survey_owner_id = survey[0]
+
+        # SECURITY CHECK: Only survey owner can rate respondents
+        if survey_owner_id != rater_user_id:
+            return jsonify({"success": False, "message": "Apenas o criador da pesquisa pode avaliar respondentes"}), 403
+
+        # Verificar se já existe avaliação para este respondente nesta pesquisa
+        cur.execute(
+            """
+            SELECT id FROM respondent_ratings
+            WHERE survey_id = %s AND rater_user_id = %s AND rated_user_id = %s
+            """,
+            (survey_id, rater_user_id, rated_user_id)
+        )
+        existing_rating = cur.fetchone()
+
+        if existing_rating:
+            # Atualizar avaliação existente
+            cur.execute(
+                """
+                UPDATE respondent_ratings
+                SET rating = %s, created_at = CURRENT_TIMESTAMP
+                WHERE survey_id = %s AND rater_user_id = %s AND rated_user_id = %s
+                """,
+                (rating, survey_id, rater_user_id, rated_user_id)
+            )
+        else:
+            # Inserir nova avaliação
+            cur.execute(
+                """
+                INSERT INTO respondent_ratings (survey_id, rater_user_id, rated_user_id, rating)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (survey_id, rater_user_id, rated_user_id, rating)
+            )
+
+        # Atualizar a média móvel do usuário avaliado
+        update_user_rating(cur, rated_user_id)
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Avaliação salva com sucesso"
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": f"Erro ao salvar avaliação: {str(e)}"}), 500
 
     finally:
         if cur:

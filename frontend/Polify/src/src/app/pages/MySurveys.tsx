@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router";
 import {
   FolderOpen, MoreHorizontal, BarChart3, Trash2, PlusCircle, Zap, Star,
-  Download, FileText, Users, Clock, CheckCircle, ArrowLeft, ShoppingCart, Coins,
+  Download, FileText, Users, Clock, ArrowLeft, ShoppingCart, Coins,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useApp } from "../contexts/AppContext";
@@ -480,6 +480,7 @@ export function MySurveys() {
   // Structured Rating Modal
   if (rateModal) {
     return <StructuredRatingView
+      surveyId={rateModal}
       respondents={ratingRespondents}
       respondentRatings={respondentRatings}
       rateRespondent={rateRespondent}
@@ -697,27 +698,30 @@ export function MySurveys() {
 }
 
 // ── Structured Rating Component ──
-function StructuredRatingView({ respondents, respondentRatings, rateRespondent, onBack, t }: {
+function StructuredRatingView({ surveyId, respondents, respondentRatings, rateRespondent, onBack }: {
+  surveyId: string;
   respondents: any[];
   respondentRatings: Record<string, Record<string, boolean>>;
-  rateRespondent: (id: string, answers: Record<string, boolean>) => void;
+  rateRespondent: (surveyId: string, respondentId: string, answers: Record<string, boolean>) => Promise<boolean>;
   onBack: () => void;
-  t: (k: string) => string;
 }) {
-  const navigate = useNavigate();
   const [activeRespondent, setActiveRespondent] = useState<string | null>(null);
   const [ratingAnswers, setRatingAnswers] = useState<Record<string, boolean>>({});
 
-  const handleSubmitRating = (respondentId: string) => {
+  const handleSubmitRating = async (respondentId: string) => {
     if (Object.keys(ratingAnswers).length < ratingQuestions.length) {
       toast.error("Responda todas as perguntas antes de enviar.");
       return;
     }
-    rateRespondent(respondentId, ratingAnswers);
-    const stars = computeStarsFromStructuredRating(ratingAnswers);
-    toast.success(`Avaliação enviada: ${stars} estrelas`);
-    setActiveRespondent(null);
-    setRatingAnswers({});
+    const success = await rateRespondent(surveyId, respondentId, ratingAnswers);
+    if (success) {
+      const stars = computeStarsFromStructuredRating(ratingAnswers);
+      toast.success(`Avaliação enviada: ${stars} estrelas`);
+      setActiveRespondent(null);
+      setRatingAnswers({});
+    } else {
+      toast.error("Erro ao enviar avaliação");
+    }
   };
 
   return (
@@ -784,86 +788,43 @@ function StructuredRatingView({ respondents, respondentRatings, rateRespondent, 
             <tbody>
               {respondents.map((resp) => {
                 const hasRated = !!respondentRatings[resp.id];
-                const stars = hasRated ? computeStarsFromStructuredRating(respondentRatings[resp.id]) : 0;
+                const backendRating = resp.avg_rating || 0;
                 return (
                   <tr key={resp.id} className="border-b border-border last:border-0 hover:bg-secondary/50 transition-colors">
                     <td className="px-5 py-4">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${statusColors[resp.status]}`}>
-                            {resp.status}
-                          </span>
-                          <span className="text-muted-foreground ml-2" style={{ fontSize: "11px" }}>
-                            {resp.responses} {t("mySurveys.responses")} • {resp.targetResponses} {t("mySurveys.target")}
-                          </span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[#6366f1]/10 flex items-center justify-center">
+                          <span className="text-[#6366f1] font-medium">{resp.name.charAt(0).toUpperCase()}</span>
                         </div>
-                        <button
-                          onClick={() => navigate(`/respostas/${resp.id}`)}
-                          className="px-3 py-2 bg-[#6366f1] hover:bg-[#5558e6] text-white rounded-lg transition-colors text-sm"
-                        >
-                          {t("mySurveys.viewResponses")}
-                        </button>
-                      </div>
-
-                      <div>
-                        <h3 className="text-foreground font-medium" style={{ fontSize: "16px" }}>{resp.title}</h3>
-                        <p className="text-muted-foreground mt-1" style={{ fontSize: "13px" }}>{resp.description}</p>
-                        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Users size={14} />
-                            {resp.segmentation}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Clock size={14} />
-                            {resp.estimatedTime}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Coins size={14} />
-                            {resp.tokenReward} tokens
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pt-4 border-t border-border">
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground text-sm">{t("mySurveys.responses")}: {resp.responses}</span>
-                          <button
-                            onClick={() => navigate(`/respostas/${resp.id}`)}
-                            className="text-[#6366f1] hover:text-[#5558e6] text-sm font-medium"
-                          >
-                            {t("mySurveys.viewDetails")}
-                          </button>
+                        <div>
+                          <p className="text-foreground font-medium" style={{ fontSize: "14px" }}>{resp.name}</p>
+                          <p className="text-muted-foreground" style={{ fontSize: "12px" }}>{resp.responses} respostas</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-1">
-                        <Star size={12} className="text-[#f59e0b] fill-[#f59e0b]" />
-                        <span className="text-foreground" style={{ fontSize: "13px" }}>{resp.avgRating?.toFixed(1) || "-"}</span>
+                        <Star size={14} className={backendRating >= 4 ? "text-yellow-500" : backendRating >= 3 ? "text-yellow-400" : backendRating >= 2 ? "text-yellow-300" : "text-gray-400"} />
+                        <span className="text-foreground font-medium" style={{ fontSize: "14px" }}>{backendRating.toFixed(1)}</span>
+                        <span className="text-muted-foreground" style={{ fontSize: "12px" }}>({resp.total_ratings_count || 0})</span>
                       </div>
                     </td>
-                    <td className="px-5 py-4"><span className="text-muted-foreground" style={{ fontSize: "13px" }}>{resp.completedAt}</span></td>
+                    <td className="px-5 py-4">
+                      <span className="text-muted-foreground" style={{ fontSize: "13px" }}>{resp.completedAt ? new Date(resp.completedAt).toLocaleDateString('pt-BR') : '-'}</span>
+                    </td>
                     <td className="px-5 py-4 text-center">
-                      {hasRated ? (
-                        <span className="flex items-center gap-1 justify-center text-emerald-600" style={{ fontSize: "12px", fontWeight: 500 }}>
-                          <CheckCircle size={14} /> {stars}★ avaliado
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => { setActiveRespondent(resp.id); setRatingAnswers({}); }}
-                          className="bg-[#6366f1] hover:bg-[#5558e6] text-white px-3 py-1.5 rounded-lg transition-colors"
-                          style={{ fontSize: "12px", fontWeight: 500 }}
-                        >
-                          Avaliar
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setActiveRespondent(resp.id)}
+                        className="px-3 py-1.5 bg-[#6366f1] hover:bg-[#5558e6] text-white rounded-lg transition-colors text-sm"
+                        disabled={hasRated}
+                        style={{ fontSize: "13px", fontWeight: 500, opacity: hasRated ? 0.5 : 1 }}
+                      >
+                        {hasRated ? "Avaliado" : "Avaliar"}
+                      </button>
                     </td>
                   </tr>
                 );
               })}
-              {respondents.length === 0 && (
-                <tr><td colSpan={4} className="text-center py-8 text-muted-foreground" style={{ fontSize: "13px" }}>Nenhum respondente encontrado.</td></tr>
-              )}
             </tbody>
           </table>
         </div>

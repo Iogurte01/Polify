@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { CheckCircle, Shield, Award, TrendingUp, Coins, ArrowRight, User } from "lucide-react";
+import { CheckCircle, Shield, Award, TrendingUp, Coins, ArrowRight, User, UserCircle } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
 import { AvatarPicker } from "../components/AvatarPicker";
 import { profileAvatars } from "../data/mockData";
+import { toast } from "sonner";
 
 const steps = [
   {
@@ -45,6 +46,17 @@ const steps = [
     ],
   },
   {
+    icon: UserCircle,
+    title: "Perfil Demográfico",
+    points: [
+      "Complete seu perfil para receber pesquisas mais relevantes",
+      "Dados ajudam na segmentação de pesquisas",
+      "Informações são usadas de forma agregada",
+      "Você pode alterar esses dados a qualquer momento",
+    ],
+    isDemographicsStep: true,
+  },
+  {
     icon: User,
     title: "Personalização",
     points: [
@@ -59,13 +71,31 @@ const steps = [
 
 export function Onboarding() {
   const navigate = useNavigate();
-  const { completeOnboarding, selectedAvatar, updateAvatar } = useApp();
+  const { completeOnboarding, selectedAvatar, updateAvatar, updateDemographics } = useApp();
   const [currentStep, setCurrentStep] = useState(0);
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [demographicsData, setDemographicsData] = useState({
+    idade: "",
+    gender: "",
+    cidade: "",
+    estado: "",
+    escolaridade: "",
+    renda: ""
+  });
 
   const handleAccept = () => {
     completeOnboarding();
     navigate("/");
+  };
+
+  const handleSaveDemographics = async () => {
+    const success = await updateDemographics(demographicsData);
+    if (success === true) {
+      toast.success("Perfil demográfico salvo com sucesso!");
+      setCurrentStep(prev => prev + 1);
+    } else {
+      toast.error("Erro ao salvar perfil demográfico");
+    }
   };
 
   const isLastStep = currentStep === steps.length - 1;
@@ -104,7 +134,112 @@ export function Onboarding() {
             {step.title}
           </h2>
 
-          {step.isAvatarStep ? (
+          {step.isDemographicsStep ? (
+            <div className="mb-8">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-foreground text-sm font-medium mb-1.5 block">Idade</label>
+                  <input
+                    type="number"
+                    value={demographicsData.idade}
+                    onChange={(e) => setDemographicsData({ ...demographicsData, idade: e.target.value })}
+                    placeholder="Sua idade"
+                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
+                    style={{ fontSize: "14px" }}
+                  />
+                </div>
+                <div>
+                  <label className="text-foreground text-sm font-medium mb-1.5 block">Gênero</label>
+                  <select
+                    value={demographicsData.gender}
+                    onChange={(e) => setDemographicsData({ ...demographicsData, gender: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
+                    style={{ fontSize: "14px" }}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Feminino">Feminino</option>
+                    <option value="Outro">Outro</option>
+                    <option value="Prefiro não dizer">Prefiro não dizer</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-foreground text-sm font-medium mb-1.5 block">Estado</label>
+                    <input
+                      type="text"
+                      value={demographicsData.estado}
+                      onChange={(e) => setDemographicsData({ ...demographicsData, estado: e.target.value })}
+                      placeholder="UF"
+                      maxLength={2}
+                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
+                      style={{ fontSize: "14px" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-foreground text-sm font-medium mb-1.5 block">Cidade</label>
+                    <input
+                      type="text"
+                      value={demographicsData.cidade}
+                      onChange={(e) => setDemographicsData({ ...demographicsData, cidade: e.target.value })}
+                      placeholder="Sua cidade"
+                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
+                      style={{ fontSize: "14px" }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-foreground text-sm font-medium mb-1.5 block">Escolaridade</label>
+                  <select
+                    value={demographicsData.escolaridade}
+                    onChange={(e) => setDemographicsData({ ...demographicsData, escolaridade: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
+                    style={{ fontSize: "14px" }}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="Fundamental Incompleto">Fundamental Incompleto</option>
+                    <option value="Fundamental Completo">Fundamental Completo</option>
+                    <option value="Médio Incompleto">Médio Incompleto</option>
+                    <option value="Médio Completo">Médio Completo</option>
+                    <option value="Superior Incompleto">Superior Incompleto</option>
+                    <option value="Superior Completo">Superior Completo</option>
+                    <option value="Pós-graduação">Pós-graduação</option>
+                    <option value="Mestrado">Mestrado</option>
+                    <option value="Doutorado">Doutorado</option>
+                    <option value="Prefiro não dizer">Prefiro não dizer</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-foreground text-sm font-medium mb-1.5 block">Renda</label>
+                  <select
+                    value={demographicsData.renda}
+                    onChange={(e) => setDemographicsData({ ...demographicsData, renda: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
+                    style={{ fontSize: "14px" }}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="Até R$ 1.000">Até R$ 1.000</option>
+                    <option value="R$ 1.001 a R$ 2.000">R$ 1.001 a R$ 2.000</option>
+                    <option value="R$ 2.001 a R$ 3.000">R$ 2.001 a R$ 3.000</option>
+                    <option value="R$ 3.001 a R$ 5.000">R$ 3.001 a R$ 5.000</option>
+                    <option value="R$ 5.001 a R$ 10.000">R$ 5.001 a R$ 10.000</option>
+                    <option value="Acima de R$ 10.000">Acima de R$ 10.000</option>
+                    <option value="Prefiro não dizer">Prefiro não dizer</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-3 mt-6">
+                {step.points.map((point, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <CheckCircle size={16} className="text-[#6366f1] flex-shrink-0 mt-0.5" />
+                    <p className="text-muted-foreground" style={{ fontSize: "14px", lineHeight: 1.6 }}>
+                      {point}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : step.isAvatarStep ? (
             <div className="mb-8">
               <div className="flex flex-col items-center gap-4">
                 <div className="relative">
@@ -162,7 +297,16 @@ export function Onboarding() {
               <div />
             )}
 
-            {isLastStep ? (
+            {step.isDemographicsStep ? (
+              <button
+                onClick={handleSaveDemographics}
+                className="flex items-center gap-2 bg-[#6366f1] hover:bg-[#5558e6] text-white px-6 py-2.5 rounded-xl transition-colors"
+                style={{ fontSize: "14px", fontWeight: 600 }}
+              >
+                <CheckCircle size={16} />
+                Salvar e continuar
+              </button>
+            ) : isLastStep ? (
               <button
                 onClick={handleAccept}
                 className="flex items-center gap-2 bg-[#6366f1] hover:bg-[#5558e6] text-white px-6 py-2.5 rounded-xl transition-colors"

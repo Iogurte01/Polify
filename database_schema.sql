@@ -19,6 +19,7 @@ DROP TABLE IF EXISTS user_progress CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS token_balance CASCADE;
 DROP TABLE IF EXISTS password_reset_tokens CASCADE;  -- Tabela de tokens de redefinição de senha
+DROP TABLE IF EXISTS respondent_ratings CASCADE;
 
 DROP FUNCTION IF EXISTS update_users_updated_at();
 DROP FUNCTION IF EXISTS update_updated_at_column();
@@ -62,6 +63,8 @@ CREATE TABLE users (
             'Prefiro não dizer'
         )
     ),
+    estado VARCHAR(10),
+    renda VARCHAR(50),
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -79,6 +82,8 @@ CREATE TABLE user_progress (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     xp_total INTEGER DEFAULT 0,
+    avg_rating NUMERIC(3, 2) DEFAULT 0,
+    total_ratings_count INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id)
@@ -226,6 +231,20 @@ CREATE TABLE password_reset_tokens (
 );
 
 -- =====================================================
+-- 10. RESPONDENT_RATINGS
+-- =====================================================
+
+CREATE TABLE respondent_ratings (
+    id SERIAL PRIMARY KEY,
+    survey_id INTEGER NOT NULL REFERENCES header_formulario(id) ON DELETE CASCADE,
+    rater_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    rated_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(survey_id, rater_user_id, rated_user_id)
+);
+
+-- =====================================================
 -- INDEXES
 -- =====================================================
 
@@ -265,6 +284,10 @@ CREATE INDEX idx_token_balance_status ON token_balance(purchase_status);
 CREATE INDEX idx_password_reset_tokens_user ON password_reset_tokens(user_id);
 CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
 CREATE INDEX idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
+
+CREATE INDEX idx_respondent_ratings_rated_user ON respondent_ratings(rated_user_id);
+CREATE INDEX idx_respondent_ratings_created ON respondent_ratings(created_at);
+CREATE INDEX idx_respondent_ratings_survey ON respondent_ratings(survey_id);
 
 -- =====================================================
 -- FUNCTIONS
@@ -327,6 +350,11 @@ EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_password_reset_tokens_updated_at
 BEFORE UPDATE ON password_reset_tokens
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_respondent_ratings_updated_at
+BEFORE UPDATE ON respondent_ratings
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
