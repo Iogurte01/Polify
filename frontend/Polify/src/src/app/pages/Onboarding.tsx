@@ -75,12 +75,12 @@ export function Onboarding() {
   const [currentStep, setCurrentStep] = useState(0);
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [demographicsData, setDemographicsData] = useState({
-    idade: "",
+    age: "",
     gender: "",
-    cidade: "",
-    estado: "",
-    escolaridade: "",
-    renda: ""
+    city: "",
+    state: "",
+    education: "",
+    income: ""
   });
 
   const handleAccept = () => {
@@ -141,8 +141,8 @@ export function Onboarding() {
                   <label className="text-foreground text-sm font-medium mb-1.5 block">Idade</label>
                   <input
                     type="number"
-                    value={demographicsData.idade}
-                    onChange={(e) => setDemographicsData({ ...demographicsData, idade: e.target.value })}
+                    value={demographicsData.age}
+                    onChange={(e) => setDemographicsData({ ...demographicsData, age: e.target.value })}
                     placeholder="Sua idade"
                     className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
                     style={{ fontSize: "14px" }}
@@ -168,8 +168,8 @@ export function Onboarding() {
                     <label className="text-foreground text-sm font-medium mb-1.5 block">Estado</label>
                     <input
                       type="text"
-                      value={demographicsData.estado}
-                      onChange={(e) => setDemographicsData({ ...demographicsData, estado: e.target.value })}
+                      value={demographicsData.state}
+                      onChange={(e) => setDemographicsData({ ...demographicsData, state: e.target.value })}
                       placeholder="UF"
                       maxLength={2}
                       className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
@@ -180,8 +180,8 @@ export function Onboarding() {
                     <label className="text-foreground text-sm font-medium mb-1.5 block">Cidade</label>
                     <input
                       type="text"
-                      value={demographicsData.cidade}
-                      onChange={(e) => setDemographicsData({ ...demographicsData, cidade: e.target.value })}
+                      value={demographicsData.city}
+                      onChange={(e) => setDemographicsData({ ...demographicsData, city: e.target.value })}
                       placeholder="Sua cidade"
                       className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
                       style={{ fontSize: "14px" }}
@@ -191,8 +191,8 @@ export function Onboarding() {
                 <div>
                   <label className="text-foreground text-sm font-medium mb-1.5 block">Escolaridade</label>
                   <select
-                    value={demographicsData.escolaridade}
-                    onChange={(e) => setDemographicsData({ ...demographicsData, escolaridade: e.target.value })}
+                    value={demographicsData.education}
+                    onChange={(e) => setDemographicsData({ ...demographicsData, education: e.target.value })}
                     className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
                     style={{ fontSize: "14px" }}
                   >
@@ -212,8 +212,8 @@ export function Onboarding() {
                 <div>
                   <label className="text-foreground text-sm font-medium mb-1.5 block">Renda</label>
                   <select
-                    value={demographicsData.renda}
-                    onChange={(e) => setDemographicsData({ ...demographicsData, renda: e.target.value })}
+                    value={demographicsData.income}
+                    onChange={(e) => setDemographicsData({ ...demographicsData, income: e.target.value })}
                     className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20"
                     style={{ fontSize: "14px" }}
                   >

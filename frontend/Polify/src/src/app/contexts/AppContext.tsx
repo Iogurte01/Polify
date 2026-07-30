@@ -1019,12 +1019,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const userId = auth.user?.id || currentUser.id;
 
     try {
+      // Map frontend field names to backend field names
+      const backendData: any = {};
+      if (data.age !== undefined) backendData.idade = data.age;
+      if (data.gender !== undefined) backendData.gender = data.gender;
+      if (data.city !== undefined) backendData.cidade = data.city;
+      if (data.state !== undefined) backendData.estado = data.state;
+      if (data.education !== undefined) backendData.escolaridade = data.education;
+      if (data.income !== undefined) backendData.renda = data.income;
+
       const response = await fetch(`${URL_backend}/api/users/${userId}/demographics`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(backendData)
       });
 
       const result = await response.json();
