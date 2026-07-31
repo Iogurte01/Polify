@@ -124,6 +124,11 @@ export function Settings() {
     }
   };
 
+  // Update phone state when user changes
+  useEffect(() => {
+    setPhone(user?.telefone || user?.phone || "");
+  }, [user]);
+
   const handleDownloadData = () => {
     downloadUserData();
     toast.success("Dados exportados com sucesso!");
