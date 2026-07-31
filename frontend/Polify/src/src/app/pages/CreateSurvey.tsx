@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
   PlusCircle, Trash2, ChevronDown, Calculator, Target,
-  Clock, Send, ArrowUp, ArrowDown, X,
+  Clock, Send, ArrowUp, ArrowDown, X, Info,
 } from "lucide-react";
 import { categories, brazilianStates, URL_backend } from "../data/mockData";
 import { useApp } from "../contexts/AppContext";
@@ -299,14 +299,35 @@ export function CreateSurvey() {
           <div className="bg-card border border-border rounded-xl p-5">
             <h3 className="text-foreground mb-4 flex items-center gap-2" style={{ fontSize: "15px" }}><Calculator size={16} />{t("create.estimatedCost")}</h3>
             <div className="space-y-2.5">
-              <div className="flex justify-between" style={{ fontSize: "13px" }}>
-                <span className="text-muted-foreground">Custo</span>
+              <div className="flex justify-between items-center" style={{ fontSize: "13px" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Custo</span>
+                  <div className="relative group">
+                    <Info size={13} className="text-muted-foreground cursor-help" />
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-popover border border-border rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-lg">
+                      <p className="text-foreground" style={{ fontSize: "11px", lineHeight: 1.4 }}>
+                        <strong>Custo por pergunta:</strong><br />
+                        Múltipla: 10 tokens<br />
+                        Aberta: 50 tokens<br />
+                        Escala: 10 tokens<br />
+                        Checkbox: 10 tokens
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 <span className={validQuestions.length > 0 && tokenBalance >= totalTokens ? "text-[#6366f1]" : validQuestions.length > 0 ? "text-red-500" : "text-muted-foreground"} style={{ fontWeight: 600 }}>{validQuestions.length > 0 ? `${totalTokens} tokens` : "..."}</span>
               </div>
               <div className="flex justify-between" style={{ fontSize: "13px" }}>
                 <span className="text-muted-foreground">Recompensa</span>
                 <span className={validQuestions.length > 0 ? "text-emerald-600" : "text-muted-foreground"} style={{ fontWeight: 500 }}>{validQuestions.length > 0 ? `${respondentReward} tokens` : "..."}</span>
               </div>
+              {validQuestions.length > 0 && (
+                <div className="pt-2 border-t border-border">
+                  <p className="text-muted-foreground" style={{ fontSize: "11px" }}>
+                    A recompensa é equivalente a 10% do valor total do custo
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

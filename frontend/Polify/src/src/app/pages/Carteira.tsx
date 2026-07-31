@@ -183,7 +183,7 @@ export function Carteira() {
                 </div>
                 <div>
                   <p className="text-foreground" style={{ fontSize: "13px", fontWeight: 500 }}>Ganhar</p>
-                  <p className="text-muted-foreground" style={{ fontSize: "12px" }}>1 token por minuto ao responder pesquisas</p>
+                  <p className="text-muted-foreground" style={{ fontSize: "12px" }}>tokens ao responder pesquisas</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
@@ -192,7 +192,7 @@ export function Carteira() {
                 </div>
                 <div>
                   <p className="text-foreground" style={{ fontSize: "13px", fontWeight: 500 }}>Gastar</p>
-                  <p className="text-muted-foreground" style={{ fontSize: "12px" }}>5 tokens por minuto ao publicar pesquisas</p>
+                  <p className="text-muted-foreground" style={{ fontSize: "12px" }}>tokens ao publicar pesquisas</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
