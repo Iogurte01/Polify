@@ -1045,6 +1045,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       if (result.success) {
         setDemographics(prev => ({ ...prev, ...data }));
+        // Also update user phone if phone was updated
+        if (data.phone !== undefined) {
+          setUser(prev => prev ? { ...prev, telefone: data.phone, phone: data.phone } : null);
+        }
         return true;
       } else {
         console.error("Erro ao atualizar dados demográficos:", result.message);

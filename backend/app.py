@@ -510,6 +510,7 @@ def login():
                 "name": name,
                 "email": user_email,
                 "telefone": phone,
+                "phone": phone,
                 "onboarding_complete": onboarding_complete
             }
         }), 200
@@ -699,6 +700,7 @@ def login_google():
             "name": nome,
             "email": email,
             "telefone": telefone,
+            "phone": telefone,
             "onboarding_complete": onboarding_complete
         }
     }), 200
