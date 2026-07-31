@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import {
   User, CheckCircle, Award, BarChart3, Edit3, Save, X,
   MessageSquare, LogOut, Trash2, ShieldCheck, Target, GraduationCap, MapPin, Trophy,
-  Download, AlertTriangle, Shield, Compass, Crown, Handshake,
+  Download, AlertTriangle, Shield, Compass, Crown, Handshake, Star,
 } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
 import { currentUser, brazilianStates, gamificationLevels, profileAvatars } from "../data/mockData";
@@ -30,7 +30,7 @@ const levelIcons: Record<string, React.ReactNode> = {
 
 export function Profile() {
   const navigate = useNavigate();
-  const { auth, surveys, mySurveys, answeredSurveys, demographics, updateDemographics, xpTotal, xpRange, xpToNextLevel, xpProgressPercent, userLevel, logout, deleteAccount, downloadUserData, requestDataDeletion, lgpdDeletionStatus, selectedAvatar, updateAvatar, t } = useApp();
+  const { auth, surveys, mySurveys, answeredSurveys, demographics, updateDemographics, xpTotal, xpRange, xpToNextLevel, xpProgressPercent, userLevel, logout, deleteAccount, downloadUserData, requestDataDeletion, lgpdDeletionStatus, selectedAvatar, updateAvatar, t, avgRating, totalRatingsCount } = useApp();
   const [editing, setEditing] = useState(false);
   const [editDraft, setEditDraft] = useState({ ...demographics });
   const [deleteModal, setDeleteModal] = useState(false);
@@ -124,6 +124,29 @@ export function Profile() {
           <div className="grid grid-cols-2 gap-3">
             <StatCard icon={<CheckCircle size={16} className="text-emerald-600" />} label={t("profile.completionRate")} value={`${completionRate}%`} color="text-emerald-600" />
             <StatCard icon={<MessageSquare size={16} className="text-[#8b5cf6]" />} label="Respostas" value={`${answeredSurveys.length}`} color="text-[#8b5cf6]" />
+          </div>
+
+          {/* Rating */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h3 className="text-foreground mb-4 flex items-center gap-2" style={{ fontSize: "15px" }}>
+              <Star size={16} className="text-[#f59e0b]" /> Avaliação
+            </h3>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    size={20}
+                    className={star <= Math.round(avgRating) ? "text-[#f59e0b] fill-[#f59e0b]" : "text-muted-foreground"}
+                    fill={star <= Math.round(avgRating) ? "currentColor" : "none"}
+                  />
+                ))}
+              </div>
+              <div>
+                <p className="text-foreground" style={{ fontSize: "18px", fontWeight: 600 }}>{avgRating.toFixed(1)}</p>
+                <p className="text-muted-foreground" style={{ fontSize: "11px" }}>{totalRatingsCount} avaliações</p>
+              </div>
+            </div>
           </div>
 
           {/* Gamification Levels */}

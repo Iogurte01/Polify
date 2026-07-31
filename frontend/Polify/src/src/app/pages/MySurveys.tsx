@@ -803,8 +803,17 @@ function StructuredRatingView({ surveyId, respondents, respondentRatings, rateRe
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex items-center gap-1">
-                        <Star size={14} className={backendRating >= 4 ? "text-yellow-500" : backendRating >= 3 ? "text-yellow-400" : backendRating >= 2 ? "text-yellow-300" : "text-gray-400"} />
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              size={14}
+                              className={star <= Math.round(backendRating) ? "text-[#f59e0b] fill-[#f59e0b]" : "text-muted-foreground"}
+                              fill={star <= Math.round(backendRating) ? "currentColor" : "none"}
+                            />
+                          ))}
+                        </div>
                         <span className="text-foreground font-medium" style={{ fontSize: "14px" }}>{backendRating.toFixed(1)}</span>
                         <span className="text-muted-foreground" style={{ fontSize: "12px" }}>({resp.total_ratings_count || 0})</span>
                       </div>

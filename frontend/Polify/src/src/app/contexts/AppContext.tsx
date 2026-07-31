@@ -156,7 +156,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [avgRating, setAvgRating] = useState(() => {
     const v = localStorage.getItem("polify_avgRating");
-    return v ? Number(v) : 4.4;
+    return v ? Number(v) : 0;
+  });
+
+  const [totalRatingsCount, setTotalRatingsCount] = useState(() => {
+    const v = localStorage.getItem("polify_totalRatingsCount");
+    return v ? Number(v) : 0;
   });
 
   const [surveys, setSurveys] = useState<Survey[]>(() => {
@@ -346,6 +351,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setXpRange(data.progress.faixa_atual || "0-99 XP");
         setXpToNextLevel(data.progress.xp_para_proximo_nivel ?? 0);
         setXpProgressPercent(data.progress.progress_percent ?? 0);
+        setAvgRating(data.progress.avg_rating || 0);
+        setTotalRatingsCount(data.progress.total_ratings_count || 0);
+        localStorage.setItem("polify_avgRating", String(data.progress.avg_rating || 0));
+        localStorage.setItem("polify_totalRatingsCount", String(data.progress.total_ratings_count || 0));
         return true;
       }
 
@@ -1189,7 +1198,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value: AppContextType = {
     user: auth.user as User | null,
     setUser,
-    auth, tokenBalance, avgRating, surveys, mySurveys: mySurveysList,
+    auth, tokenBalance, avgRating, totalRatingsCount, surveys, mySurveys: mySurveysList,
     tokenHistory: tokenHistoryList, answeredSurveys, respondentRatings,
     demographics, trustScore, totalResponses, xpTotal, xpLevelId, xpRange, xpToNextLevel, xpProgressPercent,
     onboardingComplete, purchasedInsights,
