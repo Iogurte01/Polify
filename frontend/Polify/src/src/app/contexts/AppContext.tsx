@@ -112,7 +112,7 @@ interface AppContextType extends AppState {
   deleteAccount: () => Promise<void>;
   changePassword: (currentPass: string, newPass: string) => Promise<boolean>;
   rateRespondent: (surveyId: string, respondentId: string, answers: Record<string, boolean>) => Promise<boolean>;
-  updateDemographics: (data: Partial<Demographics>) => Promise<boolean>;
+  updateDemographics: (data: Partial<Demographics> & { phone?: string }) => Promise<boolean>;
   completeOnboarding: () => Promise<boolean>;
   purchaseInsight: (id: string, price: number) => Promise<boolean>;
   addMarketplaceSurvey: (title: string, id: string) => void;
@@ -1019,13 +1019,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [auth.user?.id]);
 
   // Demographics
-  const updateDemographics = useCallback(async (data: Partial<Demographics>): Promise<boolean> => {
+  const updateDemographics = useCallback(async (data: Partial<Demographics> & { phone?: string }): Promise<boolean> => {
     const userId = auth.user?.id || currentUser.id;
 
     try {
       // Map frontend field names to backend field names
       const backendData: any = {};
-      if (data.age !== undefined) backendData.idade = data.age;
+      if (data.age !== undefined) {
+        // Convert age range to integer (use the middle value of the range)
+        if (typeof data.age === 'string' && data.age.includes('–')) {
+          const [min, max] = data.age.split('–').map(Number);
+          backendData.idade = Math.floor((min + max) / 2);
+        } else if (typeof data.age === 'string' && data.age.includes('+')) {
+          const min = parseInt(data.age.replace('+', ''));
+          backendData.idade = min;
+        } else {
+          backendData.idade = parseInt(data.age as string);
+        }
+      }
       if (data.gender !== undefined) backendData.gender = data.gender;
       if (data.city !== undefined) backendData.cidade = data.city;
       if (data.state !== undefined) backendData.estado = data.state;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   Settings as SettingsIcon, Bell, Shield, Globe, Moon, Mail, Smartphone, Lock,
@@ -116,7 +116,7 @@ export function Settings() {
 
     const success = await updateDemographics({ phone });
     if (success) {
-      toast.success("Telefone atualizado com sucesso!");
+      toast.success("Telefone atualizado com sucesso! Em breve seus dados serão exibidos.");
       setPhoneModal(false);
       setPhoneErrors({});
     } else {

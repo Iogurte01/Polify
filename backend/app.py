@@ -7,6 +7,7 @@ import os
 import json
 import re
 import random
+import traceback
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from email_service import send_email
@@ -1083,7 +1084,8 @@ def update_user_demographics(user_id):
         if conn:
             conn.rollback()
         print(f"Erro ao atualizar dados demográficos: {e}")
-        return jsonify({"success": False, "message": "Erro ao atualizar dados demográficos"}), 500
+        print(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"success": False, "message": f"Erro ao atualizar dados demográficos: {str(e)}"}), 500
 
     finally:
         if cur:
