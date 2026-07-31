@@ -39,8 +39,9 @@ export function Profile() {
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
 
   const activeSurveysCount = surveys.filter((survey) => survey.status === "Ativa").length;
-  const completionRate = activeSurveysCount > 0
-    ? Math.round((answeredSurveys.length / activeSurveysCount) * 100)
+  const totalSurveysCount = surveys.length;
+  const completionRate = totalSurveysCount > 0
+    ? Math.round((answeredSurveys.length / totalSurveysCount) * 100)
     : 0;
 
   const handleStartEditing = () => { setEditDraft({ ...demographics }); setEditing(true); };
