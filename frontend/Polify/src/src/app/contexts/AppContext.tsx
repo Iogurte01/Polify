@@ -592,7 +592,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (data.success) {
         const authData = {
           isAuthenticated: true,
-          user: data.user
+          user: {
+            id: data.user.id,
+            name: data.user.name,
+            email: data.user.email,
+            telefone: data.user.telefone,
+            phone: data.user.phone,
+            onboarding_complete: data.user.onboarding_complete
+          }
         };
 
         setAuth(authData);
@@ -1020,7 +1027,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Demographics
   const updateDemographics = useCallback(async (data: Partial<Demographics> & { phone?: string }): Promise<boolean> => {
-    const userId = auth.user?.id || currentUser.id;
+    const userId = auth.user?.id;
+    
+    if (!userId) {
+      console.error("Usuário não autenticado");
+      return false;
+    }
 
     try {
       // Map frontend field names to backend field names
@@ -1058,7 +1070,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setDemographics(prev => ({ ...prev, ...data }));
         // Also update user phone if phone was updated
         if (data.phone !== undefined) {
-          setUser(prev => prev ? { ...prev, telefone: data.phone, phone: data.phone } : null);
+          setAuth(prev => {
+            if (!prev.user) return prev;
+            const updatedUser = { ...prev.user, telefone: data.phone, phone: data.phone };
+            const updatedAuth = { ...prev, user: updatedUser };
+            localStorage.setItem("polify_auth", JSON.stringify(updatedAuth));
+            return updatedAuth;
+          });
         }
         return true;
       } else {
