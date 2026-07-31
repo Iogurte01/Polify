@@ -394,7 +394,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 // Fetch forms from backend
   const fetchForms = useCallback(async () => {
     try {
-      const response = await fetch(`${URL_backend}/api/forms`, {
+      const userId = auth.user?.id || currentUser.id;
+      const url = userId 
+        ? `${URL_backend}/api/forms?user_id=${userId}`
+        : `${URL_backend}/api/forms`;
+      
+      const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json"
@@ -417,7 +422,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           responses: form.responses || 0,
           targetResponses: form.min_respondentes || 50,
           status: "Ativa",
-          eligible: true,
+          eligible: form.eligible !== undefined ? form.eligible : true,
           trending: false,
           boosted: false,
           segmentation: generateSegmentation(form.state, form.city, form.faixa_etaria, form.genero, form.escolaridade, form.renda),
@@ -437,7 +442,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error("Erro ao buscar formulários:", error);
       return false;
     }
-  }, []);
+  }, [auth.user?.id]);
 
   // Fetch user's surveys from backend
   const fetchMySurveys = useCallback(async (status?: string, category?: string) => {
@@ -670,7 +675,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 }, [fetchWalletData]);
 
-  const register = async (name: string, email: string, password: string, phone: string): Promise<{ success: boolean; message?: string; status?: number }> => {
+  const register = async (name: string, email: string, password: string): Promise<{ success: boolean; message?: string; status?: number }> => {
     try {
       const response = await fetch(`${URL_backend}/api/register`, {
         method: "POST",
@@ -681,7 +686,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           name,
           email,
           password,
-          phone,
         }),
       });
 
@@ -1027,6 +1031,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (data.state !== undefined) backendData.estado = data.state;
       if (data.education !== undefined) backendData.escolaridade = data.education;
       if (data.income !== undefined) backendData.renda = data.income;
+      if (data.phone !== undefined) backendData.phone = data.phone;
 
       const response = await fetch(`${URL_backend}/api/users/${userId}/demographics`, {
         method: "PUT",

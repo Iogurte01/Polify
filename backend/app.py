@@ -22,6 +22,89 @@ load_dotenv()
 application = app
 
 
+def normalize_email(value):
+    if value is None:
+        return ""
+    return value.strip().lower()
+
+
+def check_user_eligibility(user_demographics: dict, survey_segmentation: dict) -> bool:
+    """
+    Check if user is eligible to respond to a survey based on demographic segmentation
+    
+    user_demographics: {
+        idade: int,
+        gender: str,
+        cidade: str,
+        estado: str,
+        escolaridade: str,
+        renda: str
+    }
+    
+    survey_segmentation: {
+        estado: str,
+        cidade: str,
+        faixa_etaria: str,
+        genero: str,
+        escolaridade: str,
+        renda: str
+    }
+    """
+    # If no segmentation is defined, user is eligible
+    if not any(survey_segmentation.values()):
+        return True
+    
+    # Check estado (state)
+    if survey_segmentation.get("estado"):
+        if not user_demographics.get("estado") or user_demographics["estado"].upper() != survey_segmentation["estado"].upper():
+            return False
+    
+    # Check cidade (city) - if survey has city, user must match exactly
+    if survey_segmentation.get("cidade"):
+        if not user_demographics.get("cidade") or user_demographics["cidade"].lower() != survey_segmentation["cidade"].lower():
+            return False
+    
+    # Check faixa_etaria (age range)
+    if survey_segmentation.get("faixa_etaria"):
+        user_age = user_demographics.get("idade")
+        if not user_age:
+            return False
+        
+        survey_age_range = survey_segmentation["faixa_etaria"].lower()
+        # Parse age range (e.g., "18-30", "25-40", "50+")
+        if "-" in survey_age_range:
+            try:
+                min_age, max_age = map(int, survey_age_range.split("-"))
+                if not (min_age <= user_age <= max_age):
+                    return False
+            except ValueError:
+                pass
+        elif "+" in survey_age_range:
+            try:
+                min_age = int(survey_age_range.replace("+", ""))
+                if user_age < min_age:
+                    return False
+            except ValueError:
+                pass
+    
+    # Check genero (gender)
+    if survey_segmentation.get("genero"):
+        if not user_demographics.get("gender") or user_demographics["gender"].lower() != survey_segmentation["genero"].lower():
+            return False
+    
+    # Check escolaridade (education)
+    if survey_segmentation.get("escolaridade"):
+        if not user_demographics.get("escolaridade") or user_demographics["escolaridade"].lower() != survey_segmentation["escolaridade"].lower():
+            return False
+    
+    # Check renda (income)
+    if survey_segmentation.get("renda"):
+        if not user_demographics.get("renda") or user_demographics["renda"].lower() != survey_segmentation["renda"].lower():
+            return False
+    
+    return True
+
+
 def get_connection():
     database_url = os.getenv("DATABASE_URL")
     if database_url:
@@ -319,16 +402,12 @@ def register():
     name = (data.get("name") or "").strip()
     email = normalize_email(data.get("email") or "")
     password = data.get("password") or ""
-    phone = (data.get("phone") or "").strip()
 
-    if not name or not email or not password or not phone:
+    if not name or not email or not password:
         return jsonify({"success": False, "message": "Preencha todos os campos"}), 400
 
     if not is_valid_full_name(name):
         return jsonify({"success": False, "message": "Nome deve conter apenas letras"}), 400
-
-    if not is_valid_phone_number(phone):
-        return jsonify({"success": False, "message": "Telefone deve seguir o formato (12) 99677-1828"}), 400
 
     password_hash = generate_password_hash(password)
 
@@ -352,8 +431,8 @@ def register():
             }), 409
 
         cur.execute(
-            "INSERT INTO users (nome, email, password_hash, telefone) VALUES (%s, %s, %s, %s)",
-            (name, email, password_hash, phone)
+            "INSERT INTO users (nome, email, password_hash) VALUES (%s, %s, %s)",
+            (name, email, password_hash)
         )
 
         conn.commit()
@@ -944,6 +1023,7 @@ def update_user_demographics(user_id):
     estado = data.get("estado")
     escolaridade = data.get("escolaridade")
     renda = data.get("renda")
+    telefone = data.get("phone")
 
     conn = None
     cur = None
@@ -984,6 +1064,10 @@ def update_user_demographics(user_id):
         if renda is not None:
             update_fields.append("renda = %s")
             update_values.append(renda)
+
+        if telefone is not None:
+            update_fields.append("telefone = %s")
+            update_values.append(telefone)
 
         if update_fields:
             update_values.append(user_id)
@@ -1169,6 +1253,7 @@ def create_form():
 def get_forms():
     """
     Get all available forms/surveys for public listing
+    Optionally accepts user_id parameter to check eligibility
     """
     conn = None
     cur = None
@@ -1176,6 +1261,28 @@ def get_forms():
     try:
         conn = get_connection()
         cur = conn.cursor()
+
+        # Get user_id from query parameters
+        user_id = request.args.get("user_id", type=int)
+        
+        # Fetch user demographics if user_id is provided
+        user_demographics = None
+        if user_id:
+            cur.execute("""
+                SELECT idade, gender, cidade, estado, escolaridade, renda
+                FROM users
+                WHERE id = %s
+            """, (user_id,))
+            user_row = cur.fetchone()
+            if user_row:
+                user_demographics = {
+                    "idade": user_row[0],
+                    "gender": user_row[1],
+                    "cidade": user_row[2],
+                    "estado": user_row[3],
+                    "escolaridade": user_row[4],
+                    "renda": user_row[5]
+                }
 
         # [ATUALIZADO] Get all active forms with question count, estado, cidade and demographic segmentation
         query = """
@@ -1224,6 +1331,19 @@ def get_forms():
             
             response_count = cur.fetchone()[0] or 0
 
+            # Check eligibility if user demographics are available
+            eligible = True
+            if user_demographics:
+                survey_segmentation = {
+                    "estado": estado,
+                    "cidade": cidade,
+                    "faixa_etaria": faixa_etaria,
+                    "genero": genero,
+                    "escolaridade": escolaridade,
+                    "renda": renda
+                }
+                eligible = check_user_eligibility(user_demographics, survey_segmentation)
+
             forms_list.append({
                 "id": form_id,
                 "nome_formulario": nome_formulario,
@@ -1243,7 +1363,8 @@ def get_forms():
                 "created_at": created_at.isoformat() if created_at else None,
                 "total_questions": total_questions or 0,
                 "responses": response_count,
-                "criador_nome": "Anônimo"
+                "criador_nome": "Anônimo",
+                "eligible": eligible  # [NOVO] Eligibility based on user demographics
             })
 
         return jsonify({

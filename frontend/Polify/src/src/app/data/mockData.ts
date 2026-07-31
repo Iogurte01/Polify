@@ -381,6 +381,7 @@ export interface UserProfile {
     income: string;
   };
   ratings: { stars: number; count: number }[];
+  phone?: string;
 }
 
 export type Demographics = UserProfile["demographics"];

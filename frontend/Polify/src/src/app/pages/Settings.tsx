@@ -35,7 +35,7 @@ function ToggleSetting({ label, description, enabled, onChange }: ToggleSettingP
 export function Settings() {
   const navigate = useNavigate();
   // Adicionamos o 'user' aqui na desestruturação do useApp
-  const { user, theme, setTheme, lang, setLang, deleteAccount, changePassword, downloadUserData, requestDataDeletion, lgpdDeletionStatus, t } = useApp();
+  const { user, theme, setTheme, lang, setLang, deleteAccount, changePassword, downloadUserData, requestDataDeletion, lgpdDeletionStatus, updateDemographics, t } = useApp();
   const [pushNotif, setPushNotif] = useState(false);
   const [newSurveys, setNewSurveys] = useState(true);
   const [profilePublic, setProfilePublic] = useState(true);
@@ -51,6 +51,11 @@ export function Settings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+
+  // Phone change state
+  const [phoneModal, setPhoneModal] = useState(false);
+  const [phone, setPhone] = useState(user?.telefone || user?.phone || "");
+  const [phoneErrors, setPhoneErrors] = useState<Record<string, string>>({});
 
   // LGPD deletion confirm
   const [deletionConfirmModal, setDeletionConfirmModal] = useState(false);
@@ -85,6 +90,37 @@ export function Settings() {
       setPasswordErrors({});
     } else {
       setPasswordErrors({ current: "Senha atual incorreta" });
+    }
+  };
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+
+    if (!digits) return "";
+    if (digits.length <= 2) return `(${digits}`;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  };
+
+  const isValidPhone = (value: string) => /^\(\d{2}\) \d{5}-\d{4}$/.test(value);
+
+  const handleChangePhone = async () => {
+    const errors: Record<string, string> = {};
+    if (!phone) errors.phone = "Telefone é obrigatório";
+    else if (!isValidPhone(phone)) errors.phone = "Telefone deve seguir o formato (11) 99999-9999";
+
+    if (Object.keys(errors).length > 0) {
+      setPhoneErrors(errors);
+      return;
+    }
+
+    const success = await updateDemographics({ phone });
+    if (success) {
+      toast.success("Telefone atualizado com sucesso!");
+      setPhoneModal(false);
+      setPhoneErrors({});
+    } else {
+      setPhoneErrors({ phone: "Erro ao atualizar telefone" });
     }
   };
 
@@ -249,12 +285,10 @@ export function Settings() {
               <div className="flex items-center gap-2">
                 <Smartphone size={14} className="text-muted-foreground" />
                 <span className="text-foreground" style={{ fontSize: "13px" }}>
-                  {user?.telefone || user?.phone || ""}
+                  {phone || "Não informado"}
                 </span>
               </div>
-              <span className="text-emerald-600 flex items-center gap-1" style={{ fontSize: "11px", fontWeight: 500 }}>
-                <CheckCircle size={11} /> {t("settings.verified")}
-              </span>
+              <button onClick={() => setPhoneModal(true)} className="text-[#6366f1] hover:text-[#5558e6] transition-colors"><ChevronRight size={16} /></button>
             </div>
           </div>
         </div>
@@ -335,6 +369,46 @@ export function Settings() {
                 style={{ fontSize: "13px", fontWeight: 500 }}
               >
                 {t("general.save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Phone Modal */}
+      {phoneModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded-xl p-6 w-[420px] max-w-[90vw]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-foreground" style={{ fontSize: "16px", fontWeight: 600 }}>Alterar telefone</h3>
+              <button onClick={() => { setPhoneModal(false); setPhoneErrors({}); }} className="text-muted-foreground hover:text-foreground">
+                <X size={18} />
+              </button>
+            </div>
+            <div>
+              <label className="text-foreground block mb-1.5" style={{ fontSize: "13px" }}>Telefone</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => { setPhone(formatPhone(e.target.value)); setPhoneErrors({}); }}
+                inputMode="numeric"
+                maxLength={15}
+                className={`w-full bg-input-background border rounded-lg px-4 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] ${phoneErrors.phone ? "border-red-400" : "border-border"}`}
+                style={{ fontSize: "14px" }}
+                placeholder="(11) 99999-9999"
+              />
+              {phoneErrors.phone && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{phoneErrors.phone}</p>}
+            </div>
+            <div className="flex gap-3 justify-end mt-6">
+              <button onClick={() => { setPhoneModal(false); setPhoneErrors({}); }} className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-secondary transition-colors" style={{ fontSize: "13px", fontWeight: 500 }}>
+                Cancelar
+              </button>
+              <button
+                onClick={handleChangePhone}
+                className="bg-[#6366f1] hover:bg-[#5558e6] text-white px-4 py-2 rounded-lg transition-colors"
+                style={{ fontSize: "13px", fontWeight: 500 }}
+              >
+                Salvar
               </button>
             </div>
           </div>

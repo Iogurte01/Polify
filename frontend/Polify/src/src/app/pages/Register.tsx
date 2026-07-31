@@ -21,7 +21,6 @@ export function Register() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [lgpdAccepted, setLgpdAccepted] = useState(false);
@@ -32,30 +31,17 @@ export function Register() {
 
   const sanitizeName = (value: string) => value.replace(/[^A-Za-zÀ-ÿ\s'-]/g, "");
 
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 11);
-
-    if (!digits) return "";
-    if (digits.length <= 2) return `(${digits}`;
-    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-  };
-
   const isValidName = (value: string) => /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'-]*$/.test(value);
-  const isValidPhone = (value: string) => /^\(\d{2}\) \d{5}-\d{4}$/.test(value);
 
   const validate = () => {
     const e: Record<string, string> = {};
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
-    const trimmedPhone = phone.trim();
 
     if (!trimmedName) e.name = t("auth.error.name");
     else if (!isValidName(trimmedName)) e.name = t("auth.error.nameInvalid");
 
     if (!trimmedEmail) e.email = t("auth.error.email");
-    if (!trimmedPhone) e.phone = t("auth.error.phone");
-    else if (!isValidPhone(trimmedPhone)) e.phone = t("auth.error.phoneFormat");
 
     if (!password) e.password = t("auth.error.password");
     else if (password.length < 6) e.password = t("auth.error.passwordMin");
@@ -72,7 +58,7 @@ export function Register() {
     setLoading(true);
 
     setTimeout(async () => {
-      const result = await register(name.trim(), email.trim(), password, phone.trim());
+      const result = await register(name.trim(), email.trim(), password);
 
       setLoading(false);
 
@@ -189,24 +175,6 @@ export function Register() {
                 />
               </div>
               {errors.email && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{errors.email}</p>}
-            </div>
-
-            <div>
-              <label className="text-foreground mb-1.5 block" style={{ fontSize: "13px" }}>{t("auth.phone")}</label>
-              <div className="relative">
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => { setPhone(formatPhone(e.target.value)); setErrors({}); }}
-                  placeholder={t("auth.phonePlaceholder")}
-                  autoComplete="tel"
-                  inputMode="numeric"
-                  maxLength={15}
-                  className={`w-full bg-input-background border rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] ${errors.phone ? "border-red-400" : "border-border"}`}
-                  style={{ fontSize: "14px" }}
-                />
-              </div>
-              {errors.phone && <p className="text-red-500 mt-1" style={{ fontSize: "12px" }}>{errors.phone}</p>}
             </div>
 
             <div>
