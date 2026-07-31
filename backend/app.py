@@ -1161,6 +1161,50 @@ def get_user_progress(user_id):
             conn.close()
 
 
+@app.route("/api/users/<int:user_id>/answered-surveys", methods=["GET"])
+def get_answered_surveys(user_id):
+    """
+    Get list of survey IDs that the user has completed
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+        user_exists = cur.fetchone()
+        if not user_exists:
+            return jsonify({"success": False, "message": "Usuário não encontrado"}), 404
+
+        # Get completed surveys from header_form_cont where completed = TRUE
+        cur.execute(
+            """
+            SELECT id_form
+            FROM header_form_cont
+            WHERE id_user = %s AND completed = TRUE
+            """,
+            (user_id,)
+        )
+
+        answered_surveys = [row[0] for row in cur.fetchall()]
+
+        return jsonify({"success": True, "answered_surveys": answered_surveys}), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"ERROR: {str(e)}")
+        return jsonify({"success": False, "message": f"Erro ao buscar pesquisas respondidas: {str(e)}"}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
 #cria um formulário
 #key words: Criar - Postar - Publicar - Formulário 
 @app.route("/api/forms", methods=["POST"])

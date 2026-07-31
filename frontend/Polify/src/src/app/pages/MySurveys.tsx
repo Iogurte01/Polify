@@ -588,6 +588,9 @@ export function MySurveys() {
         ))}
       </div>
 
+      {/* - distância aqui */}
+      <div className="h-8"></div>
+
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <table className="w-full">
           <thead>

@@ -365,6 +365,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Fetch answered surveys from backend
+  const fetchAnsweredSurveys = useCallback(async (userId: number) => {
+    try {
+      const response = await fetch(`${URL_backend}/api/users/${userId}/answered-surveys`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.answered_surveys) {
+        const answeredSurveyIds = data.answered_surveys.map((id: number) => String(id));
+        setAnsweredSurveys(answeredSurveyIds);
+        localStorage.setItem("polify_answered", JSON.stringify(answeredSurveyIds));
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Erro ao buscar pesquisas respondidas:", error);
+      return false;
+    }
+  }, []);
+
   // Fetch wallet data from backend
   const fetchWalletData = useCallback(async (userId: number) => {
     try {
@@ -620,6 +646,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Fetch wallet data after successful login
         if (data.user?.id) {
           await fetchWalletData(data.user.id);
+          await fetchAnsweredSurveys(data.user.id);
         }
 
         return true;
@@ -670,14 +697,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Set onboarding status from backend
       setOnboardingComplete(data.user?.onboarding_complete || false);
 
+      // Fetch wallet data after successful login
+      if (data.user?.id) {
+        await fetchWalletData(data.user.id);
+        await fetchAnsweredSurveys(data.user.id);
+      }
+
       localStorage.setItem(
         "polify_auth",
         JSON.stringify(authData)
       );
-
-      if (data.user?.id) {
-        await fetchWalletData(data.user.id);
-      }
 
       return true;
     }
@@ -891,8 +920,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     if (userId && auth.isAuthenticated) {
       fetchWalletData(userId);
+      fetchAnsweredSurveys(userId);
     }
-  }, [auth.isAuthenticated, auth.user?.id, fetchWalletData]);
+  }, [auth.isAuthenticated, auth.user?.id, fetchWalletData, fetchAnsweredSurveys]);
 
   // Publish survey
   const publishSurvey = useCallback((survey: Omit<MySurvey, "id" | "responses" | "createdAt" | "source" | "avgQuality" | "validResponses">, cost: number, feedSurvey: Omit<Survey, "id">): boolean => {
